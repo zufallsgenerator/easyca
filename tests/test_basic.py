@@ -138,14 +138,9 @@ class Test(unittest.TestCase):
         )
         self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
             res.get('message'), res.get("conf")))
-        with open('/tmp/ca.cert', 'w+') as f:
-            f.write(res['cert'])
 
-        print(res)
-        print(res['conf'])
         res_parsed = info.load_x509(res.get('cert'))
         print(json.dumps(res_parsed, indent=4))
-        print(ca_path)
 
 if __name__ == "__main__":
     unittest.main()
