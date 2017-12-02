@@ -168,6 +168,9 @@ def sign_cert(csr=None, ca_path=None, days=90):
         fileno_csr, csr_path = tempfile.mkstemp(suffix='.csr')
         fileno_conf, conf_path = tempfile.mkstemp(suffix='.conf')
 
+        api_version = read_ca_version(ca_path)
+        print("API version of CA: {}".format(api_version))
+
         alt_names = extract_san_from_req(csr)
 
         conf = (CA_CONF + CA_CONF_SIGN_EXT).format(
@@ -267,6 +270,9 @@ authorityKeyIdentifier = keyid,issuer
 {csr_san}
 """
 
+AP_VERSION_FILENAME = "api_version.txt"
+API_VERSION = 1
+
 
 def make_ca_structure(basepath):
     folder_perms = [
@@ -281,6 +287,13 @@ def make_ca_structure(basepath):
         os.chmod(path, perm)
     with open(os.path.join(basepath, 'index.txt'), 'w+') as f:
         f.write('')
+    with open(os.path.join(basepath, AP_VERSION_FILENAME), 'w+') as f:
+        f.write(str(API_VERSION))
+
+
+def read_ca_version(basepath):
+    with open(os.path.join(basepath, AP_VERSION_FILENAME)) as f:
+        return int(f.read())
 
 
 def create_ca(
