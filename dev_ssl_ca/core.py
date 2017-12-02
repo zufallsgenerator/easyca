@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-
+"""
+Main module for creating Certificate Authorities and signing CSRs
+"""
 import subprocess
 import tempfile
 import shutil
 import os
 import OpenSSL
 from . import san
-
-
-
+from . import distinguished_name
 
 # references:
 # https://www.phildev.net/ssl/opensslconf.html
@@ -33,29 +33,19 @@ CONF_TPL = """[ req ]
 distinguished_name = req_distinguished_name
 prompt             = no
 x509_extensions    = v3_ca
-req_extension      = v3_req
 
 [ req_distinguished_name ]
 {dn}
 
 [ v3_ca ]
+basicConstraints = CA:false
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+extendedKeyUsage = serverAuth,clientAuth
 {extensions_section}
 
-[ v3_req ]
-basicConstraints=critical,CA:True
-keyUsage=digitalSignature,keyEncipherment
-extendedKeyUsage=serverAuth,clientAuth
 """
 
-DEFAULT_CONF_ARGS = dict(
-    C='c',
-    ST='st',
-    L='l',
-    O='o',
-    OU='ou',
-    CN='cn',
-    emailAddress='email',
-)
 
 EXT_SEC_TPL = """subjectAltName = @alt_names
 
@@ -75,16 +65,17 @@ def make_san_section(alt_names):
     return extensions_section
 
 
-def make_dn_section(dn):
-    dn_str = ""
-    for conf_key, arg_key in DEFAULT_CONF_ARGS.items():
-        if dn and dn.get(arg_key):
-            dn_str += "{} = {}\n".format(conf_key, dn.get(arg_key))
-    return dn_str
-
-
 def create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
-    dn_str = make_dn_section(dn)
+    """Create a self-signed certificate.
+
+    :param ca_path: path where to create the required folder structure
+    :param dn: a dictionary with configuration for distinguished name
+    :param alt_names: a list of of Subject Alternative Names
+    :param days: how many days in the future the CA will be valid
+    :param newkey: key specification like 'rsa:2048'
+    :returns: a dict with the members *success* and *message* always set
+    """
+    dn_str = distinguished_name.make_name_section(dn)
 
     extensions_section = make_san_section(alt_names)
 
@@ -92,10 +83,7 @@ def create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
         dn=dn_str,
         extensions_section=extensions_section,
     )
-    return _gen_cert(conf=conf, days=days, newkey=newkey)
 
-
-def _gen_cert(conf=None, days=None, newkey=None):
     try:
         tmp_path = tempfile.mkdtemp()
         key_path = os.path.join(tmp_path, 'key.pem')
@@ -166,7 +154,15 @@ def extract_san_from_req(buf):
 
 
 def sign_cert(csr=None, ca_path=None, days=90):
+    """Sign a Certificate Signing Request.
+    This function carries over Subject Alternative Name entries from the
+    request.
 
+    :param csr: a string with the CSR in PEM format
+    :param ca_path: path to folder structure created with :py:func:`create_ca`
+    :param days: how many days in the future the certificate will be valid
+    :returns: a dict with the members *success* and *message* always set
+    """
     try:
         fileno_csr, csr_path = tempfile.mkstemp(suffix='.csr')
         fileno_conf, conf_path = tempfile.mkstemp(suffix='.conf')
@@ -219,8 +215,6 @@ def sign_cert(csr=None, ca_path=None, days=90):
         os.unlink(conf_path)
 
 
-
-
 # https://www.phildev.net/ssl/creating_ca.html
 
 CA_CONF = """
@@ -248,40 +242,14 @@ default_md = sha256
 policy = policy_anything
 
 [ policy_anything ]
-countryName     = optional
-stateOrProvinceName = optional
-localityName        = optional
-organizationName    = optional
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
 organizationalUnitName  = optional
-commonName      = supplied
-emailAddress        = optional
+commonName              = supplied
+emailAddress            = optional
 
-# https://www.phildev.net/ssl/creating_ca.html
-####################################################################
-# Extensions for when we sign normal certs (specified as default)
-[ usr_cert ]
-basicConstraints = CA:false
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer
-subjectAltName = email:move
-
-####################################################################
-# Same as above, but cert req already has SubjectAltName
-[ usr_cert_has_san ]
-basicConstraints = CA:false
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer
-
-####################################################################
-# Extensions to use when signing a CA
-[ v3_ca ]
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid:always,issuer:always
-basicConstraints = CA:true
-subjectAltName=email:move
-
-####################################################################
-# Same as above, but CA req already has SubjectAltName
 [ v3_ca_has_san ]
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer:always
@@ -321,7 +289,18 @@ def create_ca(
     days=90,
     newkey='rsa:2048',
 ):
-    dn_str = make_dn_section(dn)
+    """Create a Certificate Authority.
+    This creates a folder structure containing a root CA, public and private
+    keys, and folders for Certificate Signing Requests and Signed Certificates.
+
+    :param ca_path: path where to create the required folder structure
+    :param dn: a dictionary with configuration for distinguished name
+    :param alt_names: a list of of Subject Alternative Names
+    :param days: how many days in the future the CA will be valid
+    :param newkey: key specification like 'rsa:2048'
+    :returns: a dict with the members *success* and *message* always set
+    """
+    dn_str = distinguished_name.make_name_section(dn)
     make_ca_structure(ca_path)
 
     key_path = os.path.join(ca_path, 'private', 'cakey.pem')
@@ -401,3 +380,9 @@ def create_ca(
             "key": key,
             "conf": conf,
         }
+
+__all__ = [
+    'create_ca',
+    'sign_cert',
+    'create_self_signed',
+]

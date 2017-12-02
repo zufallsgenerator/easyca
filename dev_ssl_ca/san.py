@@ -44,3 +44,5 @@ def format_alt_names(alt_names):
             dns_idx += 1
 
     return "\n".join(ret)
+
+__all__ = ['format_alt_names']

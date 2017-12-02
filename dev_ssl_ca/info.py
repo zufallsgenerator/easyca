@@ -42,6 +42,12 @@ def _to_json(raw):
 
 
 def load_x509(buf):
+    """Load a x509 certificate in PEM (text) format and extract the data
+    to a JSON structure.
+
+    :param buf: a string containing the certificate.
+    :returns: a JSON structure with all the data
+    """
     cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, buf)
 
     extensions = []
@@ -62,11 +68,7 @@ def load_x509(buf):
     ret = _to_json(raw)
     return ret
 
-
-
-
 BEGIN = "-----BEGIN"
-
 
 def list_depot(path):
     files = glob.glob(os.path.join(path, "*"))
@@ -93,9 +95,6 @@ def list_depot(path):
                     buf = buf[end:]
                     ret = load_x509(part)
                     print(json.dumps(ret, indent=4))
-
-
-
 
 
 if __name__ == "__main__":

@@ -55,6 +55,15 @@ def get_utcnow_round():
     )
 
 
+def get_san_from_extensions(extensions):
+    for ext in extensions:
+        if ext['name'] == 'subjectAltName':
+            return [
+                e.strip() for e in ext['str'].split(",")
+            ]
+    return
+
+
 class Test(unittest.TestCase):
     def setUp(self):
         self._tempdirs = []
@@ -133,19 +142,15 @@ class Test(unittest.TestCase):
             '-----BEGIN CERTIFICATE-----'))
 
         res_parsed = info.load_x509(res.get('cert'))
-#        print(json.dumps(res_parsed, indent=4))
+        print(json.dumps(res_parsed, indent=4))
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
         self.assertEqual(res_parsed['issuer']['CN'], CN)
 
         # Verify Subject Alternative Name
-        self.assertEqual(len(res_parsed['extensions']), 1)
-        ext = res_parsed['extensions'][0]
-        self.assertEqual(ext['name'], 'subjectAltName')
-        san = [
-            e.strip() for e in ext['str'].split(",")
-        ]
+
+        san = get_san_from_extensions(res_parsed['extensions'])
         self.assertEqual(len(san), 5)
         self.assertEqual(sorted(san), sorted([
             "DNS:example.com",
@@ -174,12 +179,9 @@ class Test(unittest.TestCase):
             res.get('message'), res.get("conf")))
 
         res_parsed = info.load_x509(res.get('cert'))
-        san = []
-        for ext in res_parsed['extensions']:
-            if ext['name'] == 'subjectAltName':
-                san = [
-                    e.strip() for e in ext['str'].split(",")
-                ]
+
+        san = get_san_from_extensions(res_parsed['extensions'])
+
         self.assertEqual(len(san), 5)
         self.assertEqual(sorted(san), sorted([
             "DNS:acme.com",
