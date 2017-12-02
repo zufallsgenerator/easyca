@@ -1,9 +1,11 @@
-os:
-  - linux
-  - osx
-language: python
-python:
-  - "3.6"
+matrix:
+  include:
+    - os: osx
+      language: generic
+      env: TOXENV=py33
+    - os: linux
+      language: python
+      python: 3.6
 # command to install dependencies
 install:
   - python setup.py install
