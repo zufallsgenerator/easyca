@@ -148,23 +148,49 @@ def _gen_cert(conf=None, days=None, newkey=None):
     finally:
         shutil.rmtree(tmp_path)
 
-CA_TPL = """[ req ]
-distinguished_name = req_distinguished_name
-prompt             = no
-x509_extensions   = v3_ca
 
-[ req_distinguished_name ]
-{dn}
+def sign_cert(csr=None, ca_path=None, days=90):
+    conf_path = os.path.join(ca_path, 'openssl.conf')
 
-[ v3_ca ]
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid:always,issuer:always
-basicConstraints = CA:true
+    try:
+        fileno, csr_path = tempfile.mkstemp(suffix='.csr')
 
-#basicConstraints=critical,CA:True
-{extensions_section}
+        with open(csr_path, 'w+') as f:
+            f.write(csr)
 
-"""
+        cmd = [
+            'openssl',
+            'ca',
+            '-batch',
+            '-name',
+            'CA_dev',
+            '-config',
+            conf_path,
+            '-days',
+            str(days),
+            '-extensions',
+            'usr_cert_has_san',
+            '-infiles',
+            csr_path,
+        ]
+
+        success, message = execute_cmd(cmd)
+        if success:
+            return {
+                "success": True,
+                "message": "OK",
+                "cert": message
+            }
+        else:
+            return {
+                "success": False,
+                "message": message
+            }
+    finally:
+        os.unlink(csr_path)
+
+
+
 
 # https://www.phildev.net/ssl/creating_ca.html
 
@@ -204,7 +230,7 @@ organizationalUnitName  = optional
 commonName      = supplied
 emailAddress        = optional
 
-
+# https://www.phildev.net/ssl/creating_ca.html
 ####################################################################
 # Extensions for when we sign normal certs (specified as default)
 [ usr_cert ]
@@ -322,7 +348,7 @@ def create_ca(
         key_path,
         '-selfsign',
         '-extensions',
-        'v3_ca_has_san',
+        'usr_cert_has_san',
         '-infiles',
         careq_path,
     ]

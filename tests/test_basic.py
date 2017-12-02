@@ -13,6 +13,40 @@ import datetime
 import tempfile
 import shutil
 
+CSR_CN = """-----BEGIN CERTIFICATE REQUEST-----
+MIICWzCCAUMCAQAwFjEUMBIGA1UEAxMLZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQCfjTsoNZKRJjDtHM0sJO5va34+R+P0h5c2vr1U
+hcJyCn3XYPu3iA2w4ox8licPktlehQ0saEgJclhV+UEnyPbDVfTcQknDaLSXTaUU
++OgJW4GMimEZwycw1HXq73NwJ370Ce5yvM+5QGyfw41XLg6wNOmbu91AYlup1ffq
+VmS+pDtrA57DgeCftJLxWJTXPXwOK1iGeTgj7+f5yfxR9IXqgY5lHQ4WrLVLXLBx
+Cj3EVMPVtvEGGGuF5t1zkTawLyFz8Qo13tEtK5hq+OBiscTswti+6lByAw7shh7O
+EQ5hmQ/6MLERi92ywsyet5t6dVf974zNxMBKGGPZG4h6GpG1AgMBAAGgADANBgkq
+hkiG9w0BAQsFAAOCAQEAm04XRfIl27bk4zT4z0iTXHS5VUazVbs2dGVqo88d+cN5
+1zirGzuCAlI4qP559bKLrC3yYAwlgQamJfBIjHsV94tshSOC82BO+t9w4juy2jEq
+csLyzg3YR/0wOcksL9pcpifaxZxbxXe6p4MqbXMi/CwCc6YUl+AZm7i8oqnpsdTf
+GKA7V+ffIUFn0iTPlL54qPuKAQrM09muIiq/RsZNbsQ1Ni6GJ6IEfORUnJ/rAtBs
+M36FgMxCfUsfm/tcRTc1G61nw+HdT3PdcqtzM0OQQL6qAQAlu2mz+wMCLSXXixvt
+3nPLOIC5rq7mEs9keX8YNUoV3qyQPfAVRLEm1J3RZg==
+-----END CERTIFICATE REQUEST-----"""
+
+CSR_SAN = """-----BEGIN CERTIFICATE REQUEST-----
+MIICwTCCAakCAQAwLzEaMBgGA1UEChMRQWNtZSBNYWNoaW5lcyBJTkMxETAPBgNV
+BAMTCGFjbWUub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwIh4
+72xrmNoohlEehND2cCP6laXwRAP25D5L+TK82LVPOzJGPvXDJ/BtA1+0uowThsfq
+DYBS3qQnl1Ra1yZa7whJoSpXf41BCyCOvgrYgNNUeqQc/CzssmcHNHMP8GaEkeOM
+vTuk5s1yo0ckqRaS3jE+rBkC0Gft1cqCT5XluZJKp1cWZFbATaNLWpBVWDgpVKW9
+qa0Ld4FJHoP7hDTxI2oPeTkV/evfOF4rtXdjsZGGQYhlvIYc2d8OmJvLilZu+9FH
+k9qr4w7lkgel/wA9GSNP+hQ05j7SI8qd2RRnDLidoaYuYVAnmjQLbXjP0Ea0S+qV
+g+Q3XoLcZyUgM9rQtQIDAQABoE0wSwYJKoZIhvcNAQkOMT4wPDA6BgNVHREEMzAx
+gghhY21lLm9yZ4IMd3d3LmFjbWUub3JnghFjZG4xLmZhci1hd2F5LmNvbYcEwKg4
+ZDANBgkqhkiG9w0BAQsFAAOCAQEAqqYsX9bDBeLFu4oecqLy3ICp1ocTs6sl7MG+
+IQBMSQLRzrJ8lbLSJK+nNysEUhKfEM+5ux+7Tv6yVZn38zFTI7mHYlvI/852pTk6
+VxLxH1a0SdQF5PjVLgxVOvc7K6bOMHiH4f88P/vawi5v2367WUnHaWRIM8SejVgS
+6X5OKa26tsvi2nGIKNXaJK5/YpUkIbehUcPUIFCAhY+2zLFRfyZ/lOZLIyy8AXdI
+D3b2JhkAAMG/ECc/Pdpb0JLZFNxid2XnK5/1ZxJuosdkL9MszFt9TfeHQHbxljt1
+/HoL3zy0d8ulR4qUq1M1gsVjUIb2NDWjjWgV9JYx1omOmeD5Ng==
+-----END CERTIFICATE REQUEST-----"""
+
 
 def get_utcnow_round():
     return datetime.datetime.utcnow().replace(
@@ -23,10 +57,10 @@ def get_utcnow_round():
 
 class Test(unittest.TestCase):
     def setUp(self):
-        self._tempfiles = []
+        self._tempdirs = []
 
     def tearDown(self):
-        for path in self._tempfiles:
+        for path in self._tempdirs:
             try:
                 shutil.rmtree(path)
             except:
@@ -34,7 +68,7 @@ class Test(unittest.TestCase):
 
     def create_tempdir(self):
         tempdir = tempfile.mkdtemp()
-        self._tempfiles.append(tempdir)
+        self._tempdirs.append(tempdir)
         return tempdir
 
     def test_create_self_signed_basic(self):
@@ -141,6 +175,48 @@ class Test(unittest.TestCase):
 
         res_parsed = info.load_x509(res.get('cert'))
         print(json.dumps(res_parsed, indent=4))
+
+    def test_create_ca_and_sign_cert(self):
+        """Create a CA and sign certificates with it"""
+        ca_path = self.create_tempdir()
+        CN = "Acme Root CA"
+        res_ca = core.create_ca(
+            dn=dict(cn=CN),
+            newkey='rsa:512',
+            alt_names=[
+                'example.com',
+                'www.example.com',
+                '192.168.56.100',
+                'hello@example.com',
+                'http://www.example.com',
+            ],
+            ca_path=ca_path
+        )
+        self.assertTrue(
+            res_ca.get('success'), "Message: {}\nConf: {}\n".format(
+                res_ca.get('message'), res_ca.get("conf")))
+
+        # CN certificate
+        res_cert = core.sign_cert(CSR_CN, ca_path)
+        self.assertTrue(res_cert.get('success'), "Message: {}\n".format(
+            res_cert.get('message')))
+
+        res_parsed = info.load_x509(res_cert.get('cert'))
+        print(json.dumps(res_parsed, indent=4))
+        self.assertEqual(res_parsed['issuer']['CN'], CN)
+        self.assertEqual(res_parsed['subject']['CN'], 'example.com')
+
+        # SAN certificate
+        res_cert_san = core.sign_cert(CSR_SAN, ca_path)
+        self.assertTrue(res_cert_san.get('success'), "Message: {}\n".format(
+            res_cert_san.get('message')))
+
+        res_parsed = info.load_x509(res_cert_san.get('cert'))
+        print(json.dumps(res_parsed, indent=4))
+        self.assertEqual(res_parsed['issuer']['CN'], CN)
+        self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
+        # TODO: should keep SAN entries
+
 
 if __name__ == "__main__":
     unittest.main()
