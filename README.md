@@ -7,4 +7,4 @@ To be used for development purposes when one quickly needs to create and sign a 
 
 Subject Alternative Name (SAN) for self-signed certificates is supported.
 
-
+Python 3.4 and above supported.
