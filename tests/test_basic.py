@@ -48,7 +48,6 @@ class Test(unittest.TestCase):
             '-----BEGIN CERTIFICATE-----'))
 
         res_parsed = info.load_x509(res.get('cert'))
-        print(json.dumps(res_parsed, indent=4))
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
