@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import shutil
 import os
+import OpenSSL
 from . import san
 
 
@@ -62,9 +63,6 @@ EXT_SEC_TPL = """subjectAltName = @alt_names
 {alt_names}"""
 
 EXT_LINE = "x509_extensions = v3_ca"
-
-
-
 
 
 def make_san_section(alt_names):
@@ -149,11 +147,41 @@ def _gen_cert(conf=None, days=None, newkey=None):
         shutil.rmtree(tmp_path)
 
 
+def extract_san_from_req(buf):
+    """Get a list of SAN from a Certificate Signing Request"""
+    req = OpenSSL.crypto.load_certificate_request(
+        OpenSSL.crypto.FILETYPE_PEM, buf)
+
+    san = []
+    for ext in req.get_extensions():
+        short_name = ext.get_short_name().decode()
+        if short_name == "subjectAltName":
+            parts = [p.strip() for p in ext.__str__().split(',')]
+            for p in parts:
+                if ":" in p:
+                    idx = p.index(":")
+                    san.append(p[idx + 1:])
+
+    return san
+
+
 def sign_cert(csr=None, ca_path=None, days=90):
-    conf_path = os.path.join(ca_path, 'openssl.conf')
 
     try:
-        fileno, csr_path = tempfile.mkstemp(suffix='.csr')
+        fileno_csr, csr_path = tempfile.mkstemp(suffix='.csr')
+        fileno_conf, conf_path = tempfile.mkstemp(suffix='.conf')
+
+        alt_names = extract_san_from_req(csr)
+
+        conf = (CA_CONF + CA_CONF_SIGN_EXT).format(
+            san="",
+            ca_path=ca_path,
+            dn="",
+            csr_san=make_san_section(alt_names)
+        )
+
+        with open(conf_path, 'w+') as f:
+            f.write(conf)
 
         with open(csr_path, 'w+') as f:
             f.write(csr)
@@ -169,7 +197,7 @@ def sign_cert(csr=None, ca_path=None, days=90):
             '-days',
             str(days),
             '-extensions',
-            'usr_cert_has_san',
+            'usr_cert_sign',
             '-infiles',
             csr_path,
         ]
@@ -188,6 +216,7 @@ def sign_cert(csr=None, ca_path=None, days=90):
             }
     finally:
         os.unlink(csr_path)
+        os.unlink(conf_path)
 
 
 
@@ -202,9 +231,6 @@ req_extension      = v3_req
 
 [ req_distinguished_name ]
 {dn}
-
-[ v3_ca ]
-{san}
 
 
 [ CA_dev ]
@@ -260,6 +286,16 @@ subjectAltName=email:move
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer:always
 basicConstraints = CA:true
+{san}
+"""
+
+
+CA_CONF_SIGN_EXT = """
+[ usr_cert_sign ]
+basicConstraints = CA:false
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+{csr_san}
 """
 
 
@@ -286,8 +322,6 @@ def create_ca(
     newkey='rsa:2048',
 ):
     dn_str = make_dn_section(dn)
-    extensions_section = make_san_section(alt_names)
-
     make_ca_structure(ca_path)
 
     key_path = os.path.join(ca_path, 'private', 'cakey.pem')
@@ -295,10 +329,8 @@ def create_ca(
     careq_path = os.path.join(ca_path, 'careq.pem')
     config_path = os.path.join(ca_path, 'openssl.conf')
 
-    conf = CA_CONF.format(san=make_san_section([
-        'example.com',
-        'webmaster@example.com',
-    ]),
+    conf = CA_CONF.format(
+        san=make_san_section(alt_names),
         ca_path=ca_path,
         dn=dn_str,
     )
@@ -328,7 +360,6 @@ def create_ca(
             "message": message,
             "conf": conf
         }
-    print(message)
 
     cmd = [
         'openssl',
@@ -348,7 +379,7 @@ def create_ca(
         key_path,
         '-selfsign',
         '-extensions',
-        'usr_cert_has_san',
+        'v3_ca_has_san',
         '-infiles',
         careq_path,
     ]

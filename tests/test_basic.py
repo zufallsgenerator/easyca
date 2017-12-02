@@ -162,8 +162,8 @@ class Test(unittest.TestCase):
             dn=dict(cn=CN),
             newkey='rsa:512',
             alt_names=[
-                'example.com',
-                'www.example.com',
+                'acme.com',
+                'www.acme.com',
                 '192.168.56.100',
                 'hello@example.com',
                 'http://www.example.com',
@@ -174,7 +174,21 @@ class Test(unittest.TestCase):
             res.get('message'), res.get("conf")))
 
         res_parsed = info.load_x509(res.get('cert'))
-        print(json.dumps(res_parsed, indent=4))
+        san = []
+        for ext in res_parsed['extensions']:
+            if ext['name'] == 'subjectAltName':
+                san = [
+                    e.strip() for e in ext['str'].split(",")
+                ]
+        self.assertEqual(len(san), 5)
+        self.assertEqual(sorted(san), sorted([
+            "DNS:acme.com",
+            "DNS:www.acme.com",
+            "IP Address:192.168.56.100",
+            "email:hello@example.com",
+            "URI:http://www.example.com"
+        ]))
+
 
     def test_create_ca_and_sign_cert(self):
         """Create a CA and sign certificates with it"""
@@ -216,6 +230,10 @@ class Test(unittest.TestCase):
         self.assertEqual(res_parsed['issuer']['CN'], CN)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
         # TODO: should keep SAN entries
+
+    def test_load_req(self):
+        ret = core.extract_san_from_req(CSR_SAN)
+
 
 
 if __name__ == "__main__":
