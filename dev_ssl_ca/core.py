@@ -68,7 +68,6 @@ def make_san_section(alt_names):
 def create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
     """Create a self-signed certificate.
 
-    :param ca_path: path where to create the required folder structure
     :param dn: a dictionary with configuration for distinguished name
     :param alt_names: a list of of Subject Alternative Names
     :param days: how many days in the future the CA will be valid
