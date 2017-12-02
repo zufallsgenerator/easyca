@@ -60,10 +60,5 @@ class Test(unittest.TestCase):
         self.assertEqual(delta.days, DAYS)
 
 
-
-#        self.assertTrue(res.get('key', '').startswith(
-#            '-----BEGIN PRIVATE KEY-----'))
-
-
 if __name__ == "__main__":
     unittest.main()
