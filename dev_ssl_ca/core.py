@@ -16,17 +16,19 @@ from . import distinguished_name
 
 
 def execute_cmd(cmd):
-    proc = subprocess.run(
+    # subprocess.run came in version 3.5
+    proc = subprocess.Popen(
         cmd,
         shell=False,
-        check=False,
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE
     )
+    stdout, stderr = proc.communicate()
+
     if proc.returncode == 0:
-        return True, proc.stdout.decode()
+        return True, stdout.decode()
     else:
-        return False, proc.stderr.decode()
+        return False, stderr.decode()
 
 
 CONF_TPL = """[ req ]
