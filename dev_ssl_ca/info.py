@@ -21,7 +21,12 @@ def _decode_value(value):
         return ret
     elif isinstance(value, OpenSSL.crypto.X509Extension):
         try:
-            return value.__str__()
+            return {
+                "str": value.__str__(),
+                "critical": value.get_critical(),
+                "name": value.get_short_name().decode('utf-8'),
+            }
+
         except Exception as e:
             return "(Error: {})".format(e)
     else:
@@ -51,7 +56,7 @@ def load_x509(buf):
         version=cert.get_version(),
         expired=cert.has_expired(),
         extensions=extensions,
-        serial=cert.get_serial_number()
+        serial=cert.get_serial_number(),
     )
 
     ret = _to_json(raw)

@@ -75,11 +75,14 @@ class Test(unittest.TestCase):
                 'http://www.example.com',
             ]
         )
-        self.assertTrue(res.get('success'), res.get('message'))
+        self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
+            res.get('message'), res.get("conf")
+        ))
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
 
         res_parsed = info.load_x509(res.get('cert'))
+#        print(json.dumps(res_parsed, indent=4))
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
@@ -87,8 +90,10 @@ class Test(unittest.TestCase):
 
         # Verify Subject Alternative Name
         self.assertEqual(len(res_parsed['extensions']), 1)
+        ext = res_parsed['extensions'][0]
+        self.assertEqual(ext['name'], 'subjectAltName')
         san = [
-            e.strip() for e in res_parsed['extensions'][0].split(",")
+            e.strip() for e in ext['str'].split(",")
         ]
         self.assertEqual(len(san), 5)
         self.assertEqual(sorted(san), sorted([
@@ -99,6 +104,28 @@ class Test(unittest.TestCase):
             "URI:http://www.example.com"
         ]))
 
+    def test_create_ca(self):
+        CN = "Acme Root CA"
+        res = core.create_ca(
+            dn=dict(cn=CN),
+            newkey='rsa:512',
+            alt_names=[
+                'example.com',
+                'www.example.com',
+                '192.168.56.100',
+                'hello@example.com',
+                'http://www.example.com',
+            ]
+        )
+        self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
+            res.get('message'), res.get("conf")))
+        with open('/tmp/ca.cert', 'w+') as f:
+            f.write(res['cert'])
+
+        print(res)
+        print(res['conf'])
+        res_parsed = info.load_x509(res.get('cert'))
+        print(json.dumps(res_parsed, indent=4))
 
 
 
