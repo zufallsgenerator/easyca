@@ -10,6 +10,8 @@ from dateutil import (
     parser as du_parser,
 )
 import datetime
+import tempfile
+import shutil
 
 
 def get_utcnow_round():
@@ -20,6 +22,21 @@ def get_utcnow_round():
 
 
 class Test(unittest.TestCase):
+    def setUp(self):
+        self._tempfiles = []
+
+    def tearDown(self):
+        for path in self._tempfiles:
+            try:
+                shutil.rmtree(path)
+            except:
+                pass
+
+    def create_tempdir(self):
+        tempdir = tempfile.mkdtemp()
+        self._tempfiles.append(tempdir)
+        return tempdir
+
     def test_create_self_signed_basic(self):
         """Create a self-signed certificate"""
         # Test with rsa:512 for speed purposes, the minimum key length
@@ -105,6 +122,7 @@ class Test(unittest.TestCase):
         ]))
 
     def test_create_ca(self):
+        ca_path = self.create_tempdir()
         CN = "Acme Root CA"
         res = core.create_ca(
             dn=dict(cn=CN),
@@ -115,7 +133,8 @@ class Test(unittest.TestCase):
                 '192.168.56.100',
                 'hello@example.com',
                 'http://www.example.com',
-            ]
+            ],
+            ca_path=ca_path
         )
         self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
             res.get('message'), res.get("conf")))
@@ -126,8 +145,7 @@ class Test(unittest.TestCase):
         print(res['conf'])
         res_parsed = info.load_x509(res.get('cert'))
         print(json.dumps(res_parsed, indent=4))
-
-
+        print(ca_path)
 
 if __name__ == "__main__":
     unittest.main()

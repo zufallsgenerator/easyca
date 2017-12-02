@@ -252,96 +252,95 @@ def make_ca_structure(basepath):
         f.write('')
 
 
-def create_ca(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
+def create_ca(
+    ca_path=None,
+    dn=None,
+    alt_names=None,
+    days=90,
+    newkey='rsa:2048',
+):
     dn_str = make_dn_section(dn)
     extensions_section = make_san_section(alt_names)
 
-    try:
-        tmp_path = tempfile.mkdtemp()
+    make_ca_structure(ca_path)
 
-        make_ca_structure(tmp_path)
+    key_path = os.path.join(ca_path, 'private', 'cakey.pem')
+    cert_path = os.path.join(ca_path, 'cacert.pem')
+    careq_path = os.path.join(ca_path, 'careq.pem')
+    config_path = os.path.join(ca_path, 'openssl.conf')
 
-        key_path = os.path.join(tmp_path, 'private', 'cakey.pem')
-        cert_path = os.path.join(tmp_path, 'cacert.pem')
-        careq_path = os.path.join(tmp_path, 'careq.pem')
-        config_path = os.path.join(tmp_path, 'openssl.conf')
+    conf = CA_CONF.format(san=make_san_section([
+        'example.com',
+        'webmaster@example.com',
+    ]),
+        ca_path=ca_path,
+        dn=dn_str,
+    )
 
-        conf = CA_CONF.format(san=make_san_section([
-            'example.com',
-            'webmaster@example.com',
-        ]),
-            ca_path=tmp_path,
-            dn=dn_str,
-        )
+    with open(config_path, 'w+') as f:
+        f.write(conf)
 
-        with open(config_path, 'w+') as f:
-            f.write(conf)
+    cmd = [
+        'openssl',
+        'req',
+        '-nodes',
+        '-new',
+        '-newkey',
+        newkey,
+        '-keyout',
+        key_path,
+        '-out',
+        careq_path,
+        '-config',
+        config_path
+    ]
+    success, message = execute_cmd(cmd)
+    if not success:
+        raise ValueError(message)
+        return {
+            "success": success,
+            "message": message,
+            "conf": conf
+        }
+    print(message)
 
-        cmd = [
-            'openssl',
-            'req',
-            '-nodes',
-            '-new',
-            '-newkey',
-            newkey,
-            '-keyout',
-            key_path,
-            '-out',
-            careq_path,
-            '-config',
-            config_path
-        ]
-        success, message = execute_cmd(cmd)
-        if not success:
-            raise ValueError(message)
-            return {
-                "success": success,
-                "message": message,
-                "conf": conf
-            }
-        print(message)
+    cmd = [
+        'openssl',
+        'ca',
+        '-config',
+        config_path,
+        '-utf8',
+        '-batch',
+        '-name',
+        'CA_dev',
+        '-create_serial',
+        '-out',
+        cert_path,
+        '-days',
+        str(days),
+        '-keyfile',
+        key_path,
+        '-selfsign',
+        '-extensions',
+        'v3_ca_has_san',
+        '-infiles',
+        careq_path,
+    ]
+    print("Creating CA...")
+    print("{}".format(" ".join(cmd)))
+    success, message = execute_cmd(cmd)
+    if not success:
+        raise Exception(message)
 
-        cmd = [
-            'openssl',
-            'ca',
-            '-config',
-            config_path,
-            '-utf8',
-            '-batch',
-            '-name',
-            'CA_dev',
-            '-create_serial',
-            '-out',
-            cert_path,
-            '-days',
-            str(days),
-            '-keyfile',
-            key_path,
-            '-selfsign',
-            '-extensions',
-            'v3_ca_has_san',
-            '-infiles',
-            careq_path,
-        ]
-        print("Creating CA...")
-        print("{}".format(" ".join(cmd)))
-        success, message = execute_cmd(cmd)
-        if not success:
-            raise Exception(message)
-
-        if success:
-            with open(key_path) as key_file:
-                key = key_file.read()
-            with open(cert_path) as cert_file:
-                cert = cert_file.read()
-            return {
-                "success": success,
-                "message": message,
-                "cert": cert,
-                "key": key,
-                "conf": conf,
-            }
-    finally:
-        print("path is: {}".format(tmp_path))
-#        shutil.rmtree(tmp_path)    
-
+    if success:
+        with open(key_path) as key_file:
+            key = key_file.read()
+        with open(cert_path) as cert_file:
+            cert = cert_file.read()
+        return {
+            "success": success,
+            "message": message,
+            "cert": cert,
+            "key": key,
+            "conf": conf,
+        }
