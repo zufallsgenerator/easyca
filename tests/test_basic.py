@@ -23,7 +23,9 @@ class Test(unittest.TestCase):
     def test_create_self_signed_basic(self):
         """Create a self-signed certificate"""
         # Test with rsa:512 for speed purposes, the minimum key length
-        res = core.create_self_signed(cn='Acme Industries', newkey='rsa:512')
+        res = core.create_self_signed(
+            dn=dict(cn='Acme Industries'),
+            newkey='rsa:512')
         self.assertTrue(res.get('success'), res.get('message'))
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
@@ -37,7 +39,7 @@ class Test(unittest.TestCase):
         CN = "Acme Corp"
         DAYS = 42
         res = core.create_self_signed(
-            cn=CN,
+            dn=dict(cn=CN),
             newkey='rsa:512',
             days=DAYS,
         )
@@ -58,6 +60,47 @@ class Test(unittest.TestCase):
         self.assertGreaterEqual(not_before, now)
         delta = not_after - not_before
         self.assertEqual(delta.days, DAYS)
+
+    def test_create_self_signed_san(self):
+        """Create a self-signed certificate"""
+        # Test with rsa:512 for speed purposes, the minimum key length
+        CN = "Acme Corp"
+        res = core.create_self_signed(
+            dn=dict(cn=CN),
+            newkey='rsa:512',
+            alt_names=[
+                'example.com',
+                'www.example.com',
+                '192.168.56.100',
+                'hello@example.com',
+                'http://www.example.com',
+            ]
+        )
+        self.assertTrue(res.get('success'), res.get('message'))
+        self.assertTrue(res.get('cert', '').startswith(
+            '-----BEGIN CERTIFICATE-----'))
+
+        res_parsed = info.load_x509(res.get('cert'))
+
+        # Verify common name
+        self.assertEqual(res_parsed['subject']['CN'], CN)
+        self.assertEqual(res_parsed['issuer']['CN'], CN)
+
+        # Verify Subject Alternative Name
+        self.assertEqual(len(res_parsed['extensions']), 1)
+        san = [
+            e.strip() for e in res_parsed['extensions'][0].split(",")
+        ]
+        self.assertEqual(len(san), 5)
+        self.assertEqual(sorted(san), sorted([
+            "DNS:example.com",
+            "DNS:www.example.com",
+            "IP Address:192.168.56.100",
+            "email:hello@example.com",
+            "URI:http://www.example.com"
+        ]))
+
+
 
 
 if __name__ == "__main__":
