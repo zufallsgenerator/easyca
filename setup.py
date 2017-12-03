@@ -44,13 +44,13 @@ reqs = parse_reqs('requirements.txt')
 
 
 setup(
-    name='dev_ssl_ca',
+    name='easyca',
     version='0.1.0',
     description='Helper for creating SSL CAs and signing certificates',
     long_description=readme,
     author='Christer Byström',
     author_email='zool79@gmail.com',
-    url='https://github.com/zufallsgenerator/dev_ssl_ca',
+    url='https://github.com/zufallsgenerator/easyca',
     license=license,
     install_requires=reqs,
     packages=find_packages(exclude=('tests', 'docs')),
