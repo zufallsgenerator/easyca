@@ -1,9 +1,9 @@
-.. Dev-SSL-CA documentation master file, created by
+.. EasyCA documentation master file, created by
    sphinx-quickstart on Sat Dec  2 20:58:21 2017.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Dev SSL-CA Documentation
+EasyCA Documentation
 ========================
 
 .. toctree::
