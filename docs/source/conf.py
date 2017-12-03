@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# Dev-SSL-CA documentation build configuration file, created by
+# EasyCA documentation build configuration file, created by
 # sphinx-quickstart on Sat Dec  2 20:58:21 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -53,7 +53,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'Dev-SSL-CA'
+project = 'EasyCA'
 copyright = '2017, Christer Byström'
 author = 'Christer Byström'
 
