@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
+import datetime
+import shutil
+import tempfile
+import unittest
+
 from context import (
-    core,
+    CA,
     info,
 )
-import unittest
-import json
 from dateutil import (
     tz as du_tz,
-    parser as du_parser,
 )
-import datetime
-import tempfile
-import shutil
 
 CSR_CN = """-----BEGIN CERTIFICATE REQUEST-----
 MIICWzCCAUMCAQAwFjEUMBIGA1UEAxMLZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3
@@ -80,52 +79,44 @@ class Test(unittest.TestCase):
         self._tempdirs.append(tempdir)
         return tempdir
 
-    def test_create_self_signed_basic(self):
-        """Create a self-signed certificate"""
-        # Test with rsa:512 for speed purposes, the minimum key length
-        res = core.create_self_signed(
-            dn=dict(cn='Acme Industries'),
-            newkey='rsa:512')
-        self.assertTrue(res.get('success'), res.get('message'))
-        self.assertTrue(res.get('cert', '').startswith(
-            '-----BEGIN CERTIFICATE-----'))
-        self.assertTrue(res.get('key', '').startswith(
-            '-----BEGIN PRIVATE KEY-----'))
-
-    def test_create_self_signed(self):
-        """Create a self-signed certificate"""
-        # Test with rsa:512 for speed purposes, the minimum key length
-        now = get_utcnow_round()
-        CN = "Acme Corp"
-        DAYS = 42
-        res = core.create_self_signed(
-            dn=dict(cn=CN),
+    def test_create_ca(self):
+        ca_path = self.create_tempdir()
+        common_name = "Acme Root CA"
+        ca = CA(ca_path=ca_path)
+        res = ca.initialize(
+            dn=dict(cn=common_name),
             newkey='rsa:512',
-            days=DAYS,
+            alt_names=[
+                'acme.com',
+                'www.acme.com',
+                '192.168.56.100',
+                'hello@example.com',
+                'http://www.example.com',
+            ]
         )
-        self.assertTrue(res.get('success'), res.get('message'))
-        self.assertTrue(res.get('cert', '').startswith(
-            '-----BEGIN CERTIFICATE-----'))
+        self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
+            res.get('message'), res.get("conf")))
 
         res_parsed = info.load_x509(res.get('cert'))
 
-        # Verify common name
-        self.assertEqual(res_parsed['subject']['CN'], CN)
-        self.assertEqual(res_parsed['issuer']['CN'], CN)
+        san = get_san_from_extensions(res_parsed['extensions'])
 
-        # Verify time delta
-        not_before = du_parser.parse(res_parsed.get('notBefore'))
-        not_after = du_parser.parse(res_parsed.get('notAfter'))
-        self.assertGreaterEqual(not_before, now)
-        delta = not_after - not_before
-        self.assertEqual(delta.days, DAYS)
+        self.assertEqual(len(san), 5)
+        self.assertEqual(sorted(san), sorted([
+            "DNS:acme.com",
+            "DNS:www.acme.com",
+            "IP Address:192.168.56.100",
+            "email:hello@example.com",
+            "URI:http://www.example.com"
+        ]))
 
-    def test_create_self_signed_san(self):
-        """Create a self-signed certificate"""
-        # Test with rsa:512 for speed purposes, the minimum key length
-        CN = "Acme Corp"
-        res = core.create_self_signed(
-            dn=dict(cn=CN),
+    def test_create_ca_and_sign_cert(self):
+        """Create a CA and sign certificates with it"""
+        ca_path = self.create_tempdir()
+        common_name = "Acme Root CA"
+        ca = CA(ca_path=ca_path)
+        res_ca = ca.initialize(
+            dn=dict(cn=common_name),
             newkey='rsa:512',
             alt_names=[
                 'example.com',
@@ -133,35 +124,40 @@ class Test(unittest.TestCase):
                 '192.168.56.100',
                 'hello@example.com',
                 'http://www.example.com',
-            ]
+            ],
         )
-        self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
-            res.get('message'), res.get("conf")
-        ))
-        self.assertTrue(res.get('cert', '').startswith(
-            '-----BEGIN CERTIFICATE-----'))
+        self.assertTrue(
+            res_ca.get('success'), "Message: {}\nConf: {}\n".format(
+                res_ca.get('message'), res_ca.get("conf")))
 
-        res_parsed = info.load_x509(res.get('cert'))
-        print(json.dumps(res_parsed, indent=4))
+        # CN certificate
+        res_cert = ca.sign_request(CSR_CN)
+        self.assertTrue(res_cert.get('success'), "Message: {}\n".format(
+            res_cert.get('message')))
 
-        # Verify common name
-        self.assertEqual(res_parsed['subject']['CN'], CN)
-        self.assertEqual(res_parsed['issuer']['CN'], CN)
+        res_parsed = info.load_x509(res_cert.get('cert'))
+        self.assertEqual(res_parsed['issuer']['CN'], common_name)
+        self.assertEqual(res_parsed['subject']['CN'], 'example.com')
 
-        # Verify Subject Alternative Name
+        # SAN certificate
+        res_cert_san = ca.sign_request(CSR_SAN)
+        self.assertTrue(res_cert_san.get('success'), "Message: {}\n".format(
+            res_cert_san.get('message')))
 
-        san = get_san_from_extensions(res_parsed['extensions'])
-        self.assertEqual(len(san), 5)
-        self.assertEqual(sorted(san), sorted([
-            "DNS:example.com",
-            "DNS:www.example.com",
-            "IP Address:192.168.56.100",
-            "email:hello@example.com",
-            "URI:http://www.example.com"
-        ]))
+        res_parsed = info.load_x509(res_cert_san.get('cert'))
 
-    def test_load_req(self):
-        ret = core.extract_san_from_req(CSR_SAN)
+        self.assertEqual(res_parsed['issuer']['CN'], common_name)
+        self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
+
+        requests = ca.list_requests()
+        self.assertEqual(len(requests), 2)
+
+        certs = ca.list_certificates()
+        self.assertTrue(len(certs) > 0)
+
+        for cert in certs:
+            cert_res = ca.get_certificate(serial=cert['id'])
+            self.assertTrue(cert_res is not None)
 
 
 if __name__ == "__main__":

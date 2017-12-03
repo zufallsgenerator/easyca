@@ -12,14 +12,13 @@ at some point.
 
 Under the hood the openssl cli and pyOpenSSL are used.
 """
+
+from .ca import CA
 from .core import (
-    create_ca,
-    sign_cert,
     create_self_signed,
 )
 
 __all__ = [
-    'create_ca',
     'create_self_signed',
-    'sign_cert',
+    'CA',
 ]

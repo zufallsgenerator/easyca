@@ -5,8 +5,10 @@ sys.path.insert(
 
 from dev_ssl_ca import core
 from dev_ssl_ca import info
+from dev_ssl_ca.ca import CA
 
 __all__ = [
     'core',
     'info',
+    'CA',
 ]
