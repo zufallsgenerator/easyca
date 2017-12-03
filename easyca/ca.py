@@ -11,6 +11,11 @@ from .helpers import execute_cmd
 
 
 class CA(object):
+    """Certificate Authority, using an openssl CA folder structure
+    as a flat-file database.
+
+    :param ca_path: path where to create the required folder structure
+    """
     def __init__(self, ca_path=None):
         if not ca_path:
             raise ValueError("Missing ca_path")
@@ -28,7 +33,6 @@ class CA(object):
         private keys, and folders for Certificate Signing Requests and
         SignedCertificates.
 
-        :param ca_path: path where to create the required folder structure
         :param dn: a dictionary with configuration for distinguished name
         :param alt_names: a list of of Subject Alternative Names
         :param days: how many days in the future the CA will be valid
@@ -119,10 +123,14 @@ class CA(object):
 
     @property
     def initialized(self):
+        """
+        :returns boolean: true if initialized
+        """
         pass
 
     def get_info(self):
         """Get information about the CA in ca_path.
+
         :param ca_path: Path to Certificate Authority
         :returns: JSON object with status
         """
@@ -149,7 +157,11 @@ class CA(object):
             }
 
     def list_requests(self):
-        """Get a list of Certificate Signing Requests"""
+        """Get a list of Certificate Signing Requests.
+
+        :returns: list --
+            a list of {"id": <id>, "last_modified": <datastring>}
+        """
         folder_path = os.path.join(self._ca_path, "certreqs")
         suffix = ".csr"
         paths = glob.glob(os.path.join(folder_path, '*' + suffix))

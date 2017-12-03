@@ -11,7 +11,7 @@ Dev SSL-CA Documentation
    :caption: Contents:
 
 
-.. automodule:: dev_ssl_ca
+.. automodule:: easyca
     :members:
     :undoc-members:
     :show-inheritance:
