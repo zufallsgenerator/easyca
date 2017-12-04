@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm docs/build/text/index.txt
-sphinx-build -M text docs/source docs/build
+rm docs/build/rst/index.rst
+sphinx-build -M rst docs/source docs/build -E -a
 
-cat header.rst docs/build/text/index.txt > README.rst
+cat header.rst docs/build/rst/index.rst > README.rst

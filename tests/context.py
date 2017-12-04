@@ -5,10 +5,11 @@ sys.path.insert(
 
 from easyca import core
 from easyca import info
-from easyca.ca import CA
+from easyca.ca import CA, DistinguishedName
 
 __all__ = [
     'core',
     'info',
     'CA',
+    'DistinguishedName',
 ]

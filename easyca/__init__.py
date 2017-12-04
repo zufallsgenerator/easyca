@@ -1,4 +1,7 @@
-from .ca import CA
+from .ca import (
+    CA,
+    DistinguishedName,
+)
 from .core import (
     create_self_signed,
 )
@@ -6,4 +9,5 @@ from .core import (
 __all__ = [
     'create_self_signed',
     'CA',
+    'DistinguishedName',
 ]

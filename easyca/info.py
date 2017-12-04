@@ -68,7 +68,29 @@ def load_x509(buf):
     ret = _to_json(raw)
     return ret
 
+
+def load_csr(buf):
+    """Load a CSR in PEM (text) format and extract the data
+    to a JSON structure.
+
+    :param buf: a string containing the certificate.
+    :returns: a JSON structure with all the data
+    """
+    cert = OpenSSL.crypto.load_certificate_request(
+        OpenSSL.crypto.FILETYPE_PEM, buf)
+
+    extensions = cert.get_extensions()
+
+    raw = dict(
+        subject=cert.get_subject(),
+        version=cert.get_version(),
+        extensions=extensions,
+    )
+
+    ret = _to_json(raw)
+    return ret
 BEGIN = "-----BEGIN"
+
 
 def list_depot(path):
     files = glob.glob(os.path.join(path, "*"))

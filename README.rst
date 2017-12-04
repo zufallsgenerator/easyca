@@ -68,9 +68,15 @@ newkey='rsa:2048')**
       :Returns:
          JSON object with status
 
-   **get_request(name=None)**
+   **get_request(serial=None)**
 
       Get details of a certificate signing request
+
+      :Parameters:
+         **serial** – serial number of request
+
+      :Returns:
+         a dict with information
 
    **initialize(dn=None, alt_names=None, days=90, newkey='rsa:2048')**
 
@@ -79,8 +85,7 @@ newkey='rsa:2048')**
       folders for Certificate Signing Requests and SignedCertificates.
 
       :Parameters:
-         * **dn** – a dictionary with configuration for distinguished
-           name
+         * **dn** – a ``DistinguishedName`` or py:class:*dict*
 
          * **alt_names** – a list of of Subject Alternative Names
 
@@ -122,3 +127,25 @@ newkey='rsa:2048')**
 
       :Returns:
          a dict with the members *success* and *message* always set
+
+**class easyca.DistinguishedName(c=None, cn=None, email=None, l=None,
+o=None, ou=None, st=None)**
+
+   Bases: ``dict``
+
+   Distinguished Name.
+
+   :Parameters:
+      * **c** – Country/Region (two letters)
+
+      * **cn** – Common Name - hostname or dns
+
+      * **email** – Email address
+
+      * **l** – Locality
+
+      * **o** – Organization Name
+
+      * **ou** – Organizational Unit
+
+      * **st** – State or Province

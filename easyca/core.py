@@ -65,7 +65,7 @@ def create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
     :param newkey: key specification like 'rsa:2048'
     :returns: a dict with the members *success* and *message* always set
     """
-    dn_str = distinguished_name.make_name_section(dn)
+    dn_str = distinguished_name.make_dn_section(dn)
 
     extensions_section = make_san_section(alt_names)
 

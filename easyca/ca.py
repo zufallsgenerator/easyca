@@ -4,9 +4,11 @@ import os
 import tempfile
 
 from . import core
-from . import distinguished_name
 from . import info
-from . import san
+from .distinguished_name import (
+    DistinguishedName,
+    make_dn_section,
+)
 from .helpers import execute_cmd
 
 
@@ -33,14 +35,15 @@ class CA(object):
         private keys, and folders for Certificate Signing Requests and
         SignedCertificates.
 
-        :param dn: a dictionary with configuration for distinguished name
+        :param dn: a :py:class:`DistinguishedName` or py:class:`dict`
         :param alt_names: a list of of Subject Alternative Names
         :param days: how many days in the future the CA will be valid
         :param newkey: key specification like 'rsa:2048'
         :returns: a dict with the members *success* and *message* always set
         """
         ca_path = self._ca_path
-        dn_str = distinguished_name.make_name_section(dn)
+        dn_str = make_dn_section(dn)
+        print("dn_str is: {}".format(dn_str))
         core.make_ca_structure(ca_path)
 
         key_path = os.path.join(ca_path, 'private', 'cakey.pem')
@@ -73,7 +76,6 @@ class CA(object):
         ]
         success, message = execute_cmd(cmd)
         if not success:
-            raise ValueError(message)
             return {
                 "success": success,
                 "message": message,
@@ -177,9 +179,19 @@ class CA(object):
                 })
         return ret
 
-    def get_request(self, name=None):
-        """Get details of a certificate signing request"""
-        pass
+    def get_request(self, serial=None):
+        """Get details of a certificate signing request
+
+        :param serial: serial number of request
+        :return: a dict with information
+        """
+        path = os.path.join(self._ca_path, 'certreqs', serial + '.csr')
+        if not os.path.exists(path):
+            raise ValueError(path)
+            return None
+
+        with open(path) as f:
+            return info.load_csr(f.read())
 
     def list_certificates(self):
         """Get a list of signed certificates"""
@@ -306,3 +318,8 @@ class CA(object):
         finally:
             os.unlink(csr_path)
             os.unlink(conf_path)
+
+__all__ = [
+    'CA',
+    'DistinguishedName',
+]

@@ -6,6 +6,7 @@ import unittest
 
 from context import (
     CA,
+    DistinguishedName,
     info,
 )
 from dateutil import (
@@ -158,6 +159,14 @@ class Test(unittest.TestCase):
         for cert in certs:
             cert_res = ca.get_certificate(serial=cert['id'])
             self.assertTrue(cert_res is not None)
+
+    def test_distinguished_name(self):
+        dn = DistinguishedName(cn="example.com")
+        self.assertTrue(dn['cn'], "example.com")
+
+        d = dict(cn='KalleAnka')
+        dn = DistinguishedName(**d)
+        self.assertEqual(dn['cn'], "KalleAnka")
 
 
 if __name__ == "__main__":
