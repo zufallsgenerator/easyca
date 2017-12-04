@@ -1,5 +1,3 @@
-
-
 from .ca import CA
 from .core import (
     create_self_signed,

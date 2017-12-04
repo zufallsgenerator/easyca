@@ -34,7 +34,7 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
-with open('README.rst') as f:
+with open('body.txt') as f:
     readme = f.read()
 
 with open('LICENSE') as f:
