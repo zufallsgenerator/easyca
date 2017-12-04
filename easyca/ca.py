@@ -27,6 +27,7 @@ class CA(object):
     _DB_VERSION_FILENAME = "db_version.txt"
 
     # https://www.phildev.net/ssl/creating_ca.html
+    # http://pki-tutorial.readthedocs.io/en/latest/index.html
 
     _CA_CONF = """
 [ req ]
@@ -331,21 +332,23 @@ authorityKeyIdentifier = keyid,issuer
         ca_path = self._ca_path
         try:
             fileno_csr, csr_path = tempfile.mkstemp(suffix='.csr')
-            fileno_conf, conf_path = tempfile.mkstemp(suffix='.conf')
+            fileno_conf, ext_conf_path = tempfile.mkstemp(suffix='.conf')
 
             api_version = self._read_ca_version()
             print("API version of CA: {}".format(api_version))
 
             alt_names = extract_san_from_req(csr)
 
-            conf = (self._CA_CONF + self._CA_CONF_SIGN_EXT).format(
+            conf_path = os.path.join(self._ca_path, 'openssl.conf')
+
+            conf = (self._CA_CONF_SIGN_EXT).format(
                 san="",
                 ca_path=ca_path,
                 dn="",
                 csr_san=make_san_section(alt_names)
             )
 
-            with open(conf_path, 'w+') as f:
+            with open(ext_conf_path, 'w+') as f:
                 f.write(conf)
 
             with open(csr_path, 'w+') as f:
@@ -359,6 +362,8 @@ authorityKeyIdentifier = keyid,issuer
                 'CA_dev',
                 '-config',
                 conf_path,
+                '-extfile',
+                ext_conf_path,
                 '-days',
                 str(days),
                 '-extensions',
@@ -395,7 +400,7 @@ authorityKeyIdentifier = keyid,issuer
                 }
         finally:
             os.unlink(csr_path)
-            os.unlink(conf_path)
+            os.unlink(ext_conf_path)
 
 __all__ = [
     'CA',
