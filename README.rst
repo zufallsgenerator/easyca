@@ -1,5 +1,6 @@
 .. image:: https://travis-ci.org/zufallsgenerator/easyca.svg?branch=master
-    :target: https://travis-ci.org/zufallsgenerator/easyca.svg?branch=masterEasyCA
+    :target: https://travis-ci.org/zufallsgenerator/easyca.svg?branch=master
+EasyCA
 ******
 
 Copyright (c) 2017 Christer Byström
@@ -25,11 +26,12 @@ Python 3.4 and above supported.
 API Reference
 =============
 
-easyca.create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048')
+**easyca.create_self_signed(dn=None, alt_names=None, days=90,
+newkey='rsa:2048')**
 
    Create a self-signed certificate.
 
-   Parameters:
+   :Parameters:
       * **dn** – a dictionary with configuration for distinguished
         name
 
@@ -39,85 +41,84 @@ easyca.create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048')
 
       * **newkey** – key specification like ‘rsa:2048’
 
-   Returns:
+   :Returns:
       a dict with the members *success* and *message* always set
 
-class easyca.CA(ca_path=None)
+**class easyca.CA(ca_path=None)**
 
-   Bases: "object"
+   Bases: ``object``
 
    Certificate Authority, using an openssl CA folder structure as a
    flat-file database.
 
-   Parameters:
+   :Parameters:
       **ca_path** – path where to create the required folder structure
 
-   get_certificate(serial=None)
+   **get_certificate(serial=None)**
 
       Get details of a signed certificate
 
-   get_info()
+   **get_info()**
 
       Get information about the CA in ca_path.
 
-      Parameters:
+      :Parameters:
          **ca_path** – Path to Certificate Authority
 
-      Returns:
+      :Returns:
          JSON object with status
 
-   get_request(name=None)
+   **get_request(name=None)**
 
       Get details of a certificate signing request
 
-   initialize(dn=None, alt_names=None, days=90, newkey='rsa:2048')
+   **initialize(dn=None, alt_names=None, days=90, newkey='rsa:2048')**
 
       Initialize a Certificate Authority. This creates a folder
       structure containing a root CA, public and private keys, and
       folders for Certificate Signing Requests and SignedCertificates.
 
-      Parameters:
-         * **dn** – a dictionary with configuration for
-           distinguished name
+      :Parameters:
+         * **dn** – a dictionary with configuration for distinguished
+           name
 
          * **alt_names** – a list of of Subject Alternative Names
 
-         * **days** – how many days in the future the CA will be
-           valid
+         * **days** – how many days in the future the CA will be valid
 
          * **newkey** – key specification like ‘rsa:2048’
 
-      Returns:
+      :Returns:
          a dict with the members *success* and *message* always set
 
-   initialized
+   ``initialized``
 
-      Returns boolean:
+      :Returns boolean:
          true if initialized
 
-   list_certificates()
+   **list_certificates()**
 
       Get a list of signed certificates
 
-   list_requests()
+   **list_requests()**
 
       Get a list of Certificate Signing Requests.
 
-      Returns:
+      :Returns:
          list – a list of {“id”: <id>, “last_modified”: <datastring>}
 
-   revoke_certificate(serial=None)
+   **revoke_certificate(serial=None)**
 
-   sign_request(csr=None, days=90)
+   **sign_request(csr=None, days=90)**
 
       Sign a Certificate Signing Request. This function carries over
       Subject Alternative Name entries from the request.
 
-      Parameters:
+      :Parameters:
          * **csr** – a string with the CSR in PEM format
 
-         * **days** – how many days in the future the certificate
-           will be valid
+         * **days** – how many days in the future the certificate will
+           be valid
 
-      Returns:
+      :Returns:
          a dict with the members *success* and *message* always set
