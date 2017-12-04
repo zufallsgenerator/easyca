@@ -3,8 +3,8 @@ import glob
 import os
 import tempfile
 
-from . import core
 from . import info
+from .core import extract_san_from_req, make_san_section
 from .distinguished_name import (
     DistinguishedName,
     make_dn_section,
@@ -22,6 +22,61 @@ class CA(object):
         if not ca_path:
             raise ValueError("Missing ca_path")
         self._ca_path = ca_path
+
+    DB_VERSION = 1
+    _DB_VERSION_FILENAME = "db_version.txt"
+
+    # https://www.phildev.net/ssl/creating_ca.html
+
+    _CA_CONF = """
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+req_extension      = v3_req
+
+[ req_distinguished_name ]
+{dn}
+
+[ ca ]
+default_ca = CA_dev
+
+[ CA_dev ]
+dir             = {ca_path}
+certs       = $dir/certsdb
+new_certs_dir   = $certs
+database    = $dir/index.txt
+certificate = $dir/cacert.pem
+private_key = $dir/private/cakey.pem
+serial      = $dir/serial
+crldir      = $dir/crl
+crlnumber   = $dir/crlnumber
+crl     = $crldir/crl.pem
+default_md = sha256
+policy = policy_anything
+
+[ policy_anything ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ v3_ca_has_san ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
+basicConstraints = CA:true
+{san}
+"""
+
+    _CA_CONF_SIGN_EXT = """
+[ usr_cert_sign ]
+basicConstraints = CA:false
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+{csr_san}
+    """
 
     def initialize(
         self,
@@ -44,15 +99,15 @@ class CA(object):
         ca_path = self._ca_path
         dn_str = make_dn_section(dn)
         print("dn_str is: {}".format(dn_str))
-        core.make_ca_structure(ca_path)
+        self._make_ca_structure()
 
         key_path = os.path.join(ca_path, 'private', 'cakey.pem')
         cert_path = os.path.join(ca_path, 'cacert.pem')
         careq_path = os.path.join(ca_path, 'careq.pem')
         config_path = os.path.join(ca_path, 'openssl.conf')
 
-        conf = core.CA_CONF.format(
-            san=core.make_san_section(alt_names),
+        conf = self._CA_CONF.format(
+            san=make_san_section(alt_names),
             ca_path=ca_path,
             dn=dn_str,
         )
@@ -123,6 +178,29 @@ class CA(object):
                 "conf": conf,
             }
 
+    def _make_ca_structure(self):
+        basepath = self._ca_path
+        folder_perms = [
+            ('certsdb', 0o750),
+            ('certreqs', 0o750),
+            ('crl', 0o750),
+            ('private', 0o700),
+        ]
+        for name, perm in folder_perms:
+            path = os.path.join(basepath, name)
+            os.makedirs(path)
+            os.chmod(path, perm)
+        with open(os.path.join(basepath, 'index.txt'), 'w+') as f:
+            f.write('')
+        with open(os.path.join(basepath,
+                  self._DB_VERSION_FILENAME), 'w+') as f:
+            f.write(str(self.DB_VERSION))
+
+    def _read_ca_version(self):
+        with open(os.path.join(
+                self._ca_path, self._DB_VERSION_FILENAME)) as f:
+            return int(f.read())
+
     @property
     def initialized(self):
         """
@@ -149,7 +227,7 @@ class CA(object):
                 }
             return {
                 "initialized": True,
-                "version": core.read_ca_version(ca_path),
+                "version": self._read_ca_version(),
                 "details": details
             }
         except Exception as e:
@@ -255,16 +333,16 @@ class CA(object):
             fileno_csr, csr_path = tempfile.mkstemp(suffix='.csr')
             fileno_conf, conf_path = tempfile.mkstemp(suffix='.conf')
 
-            api_version = core.read_ca_version(ca_path)
+            api_version = self._read_ca_version()
             print("API version of CA: {}".format(api_version))
 
-            alt_names = core.extract_san_from_req(csr)
+            alt_names = extract_san_from_req(csr)
 
-            conf = (core.CA_CONF + core.CA_CONF_SIGN_EXT).format(
+            conf = (self._CA_CONF + self._CA_CONF_SIGN_EXT).format(
                 san="",
                 ca_path=ca_path,
                 dn="",
-                csr_san=core.make_san_section(alt_names)
+                csr_san=make_san_section(alt_names)
             )
 
             with open(conf_path, 'w+') as f:

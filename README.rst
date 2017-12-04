@@ -54,6 +54,8 @@ newkey='rsa:2048')**
    :Parameters:
       **ca_path** – path where to create the required folder structure
 
+   ``DB_VERSION = 1``
+
    **get_certificate(serial=None)**
 
       Get details of a signed certificate
