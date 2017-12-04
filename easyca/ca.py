@@ -90,7 +90,7 @@ authorityKeyIdentifier = keyid,issuer
         private keys, and folders for Certificate Signing Requests and
         SignedCertificates.
 
-        :param dn: a :py:class:`DistinguishedName` or py:class:`dict`
+        :param dn: a :py:class:`DistinguishedName` or :py:class:`dict`
         :param alt_names: a list of of Subject Alternative Names
         :param days: how many days in the future the CA will be valid
         :param newkey: key specification like 'rsa:2048'

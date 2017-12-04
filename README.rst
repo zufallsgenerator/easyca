@@ -87,7 +87,7 @@ newkey='rsa:2048')**
       folders for Certificate Signing Requests and SignedCertificates.
 
       :Parameters:
-         * **dn** – a ``DistinguishedName`` or py:class:*dict*
+         * **dn** – a ``DistinguishedName`` or ``dict``
 
          * **alt_names** – a list of of Subject Alternative Names
 
