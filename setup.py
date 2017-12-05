@@ -48,6 +48,7 @@ setup(
     version='0.1.0',
     description='Helper for creating SSL CAs and signing certificates',
     long_description=readme,
+    python_requires='>=3.4',
     author='Christer Byström',
     author_email='zool79@gmail.com',
     url='https://github.com/zufallsgenerator/easyca',
