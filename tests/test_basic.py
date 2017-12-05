@@ -2,6 +2,7 @@
 from context import (
     core,
     info,
+    parser,
 )
 import unittest
 import json
@@ -142,7 +143,6 @@ class Test(unittest.TestCase):
             '-----BEGIN CERTIFICATE-----'))
 
         res_parsed = info.load_x509(res.get('cert'))
-        print(json.dumps(res_parsed, indent=4))
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
@@ -161,7 +161,20 @@ class Test(unittest.TestCase):
         ]))
 
     def test_load_req(self):
-        ret = core.extract_san_from_req(CSR_SAN)
+        with tempfile.NamedTemporaryFile(suffix='.csr', mode='w+') as f:
+            f.write(CSR_SAN)
+            f.flush()
+            san = parser.extract_san_from_req(f.name)
+            self.assertEqual(
+                sorted(san),
+                [
+                    "192.168.56.100",
+                    "acme.org",
+                    "cdn1.far-away.com",
+                    "www.acme.org",
+                ]
+            )
+
 
 
 if __name__ == "__main__":

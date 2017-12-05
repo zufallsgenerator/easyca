@@ -125,26 +125,6 @@ def create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
         shutil.rmtree(tmp_path)
 
 
-def extract_san_from_req(buf):
-    """Get a list of SAN from a Certificate Signing Request"""
-    req = OpenSSL.crypto.load_certificate_request(
-        OpenSSL.crypto.FILETYPE_PEM, buf)
-
-    san = []
-    for ext in req.get_extensions():
-        short_name = ext.get_short_name().decode()
-        if short_name == "subjectAltName":
-            parts = [p.strip() for p in ext.__str__().split(',')]
-            for p in parts:
-                if ":" in p:
-                    idx = p.index(":")
-                    san.append(p[idx + 1:])
-
-    return san
-
-
-
-
 __all__ = [
     'create_self_signed',
 ]

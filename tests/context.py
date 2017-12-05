@@ -3,13 +3,15 @@ import sys
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from easyca import core
-from easyca import info
-from easyca.ca import CA, DistinguishedName
+from easyca import core                         # noqa
+from easyca import info                         # noqa
+from easyca import parser                       # noqa
+from easyca.ca import CA, DistinguishedName     # noqa
 
 __all__ = [
     'core',
     'info',
+    'parser',
     'CA',
     'DistinguishedName',
 ]
