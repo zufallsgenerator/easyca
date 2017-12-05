@@ -150,6 +150,18 @@ class Test(unittest.TestCase):
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
 
+        san = get_san_from_extensions(res_parsed['extensions'])
+        expected_san = [
+            'DNS:acme.org',
+            'DNS:cdn1.far-away.com',
+            'DNS:www.acme.org',
+            'IP Address:192.168.56.100'
+        ]
+        self.assertEqual(
+            sorted(san),
+            expected_san
+        )
+
         requests = ca.list_requests()
         self.assertEqual(len(requests), 2)
 

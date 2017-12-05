@@ -4,7 +4,8 @@ import os
 import tempfile
 
 from . import info
-from .core import extract_san_from_req, make_san_section
+from . import parser
+from .core import make_san_section
 from .distinguished_name import (
     DistinguishedName,
     make_dn_section,
@@ -78,6 +79,11 @@ subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer
 {csr_san}
     """
+
+    _INIT_CA_INSTRUCTIONS = """This folder of this CA doesn't seem to be
+initialized. Call initialize() with at least
+the arguments dn={"cn": "(some name here)"} set.
+"""
 
     def initialize(
         self,
@@ -235,6 +241,7 @@ authorityKeyIdentifier = keyid,issuer
             return {
                 "initialized": False,
                 "error": str(e),
+                "instructions": self._INIT_CA_INSTRUCTIONS
             }
 
     def list_requests(self):
@@ -299,7 +306,7 @@ authorityKeyIdentifier = keyid,issuer
 
     def get_certificate(self, serial=None):
         """Get details of a signed certificate"""
-        path = os.path.join(self._ca_path, "certsdb", serial + ".pem")
+        path = self._get_cert_path(serial=serial)
         if os.path.exists(path):
             with open(path) as f:
                 parsed = info.load_x509(f.read())
@@ -314,11 +321,28 @@ authorityKeyIdentifier = keyid,issuer
             }
 
     def revoke_certificate(self, serial=None):
+        cert_path = self._get_cert_path(serial=serial)
+        config_path = os.path.join(self._ca_path, 'openssl.conf')
+        cmd = [
+            'openssl',
+            'ca',
+            '-config',
+            config_path,
+            '-revoke',
+            cert_path
+        ]
+        success, message = execute_cmd(cmd)
         # revoke certificate
         # - openssl ca -config ./openssl.conf -revoke certsdb/XXX.pem
         # create crls
         # - openssl ca -config ./openssl.conf -gencrl -out crl/cacert.crl
-        pass
+        return {
+            "success": success,
+            "message": message
+        }
+
+    def _get_cert_path(self, serial=None):
+        return os.path.join(self._ca_path, "certsdb", serial + ".pem")
 
     def sign_request(self, csr=None, days=90):
         """Sign a Certificate Signing Request.
@@ -337,7 +361,11 @@ authorityKeyIdentifier = keyid,issuer
             api_version = self._read_ca_version()
             print("API version of CA: {}".format(api_version))
 
-            alt_names = extract_san_from_req(csr)
+            with open(csr_path, 'w+') as f:
+                f.write(csr)
+
+            alt_names = parser.extract_san_from_req(csr_path)
+            print(alt_names)
 
             conf_path = os.path.join(self._ca_path, 'openssl.conf')
 
@@ -350,9 +378,6 @@ authorityKeyIdentifier = keyid,issuer
 
             with open(ext_conf_path, 'w+') as f:
                 f.write(conf)
-
-            with open(csr_path, 'w+') as f:
-                f.write(csr)
 
             cmd = [
                 'openssl',
