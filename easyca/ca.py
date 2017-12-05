@@ -355,16 +355,13 @@ the arguments dn={"cn": "(some name here)"} set.
         """
         ca_path = self._ca_path
         try:
-            fileno_csr, csr_path = tempfile.mkstemp(suffix='.csr')
-            fileno_conf, ext_conf_path = tempfile.mkstemp(suffix='.conf')
+            _, ext_conf_path = tempfile.mkstemp(suffix='.conf')
+            _, csr_path = tempfile.mkstemp(suffix='.csr')
 
             api_version = self._read_ca_version()
             print("API version of CA: {}".format(api_version))
 
-            with open(csr_path, 'w+') as f:
-                f.write(csr)
-
-            alt_names = parser.extract_san_from_req(csr_path)
+            alt_names = parser.extract_san_from_req(text=csr)
             print(alt_names)
 
             conf_path = os.path.join(self._ca_path, 'openssl.conf')
@@ -378,6 +375,9 @@ the arguments dn={"cn": "(some name here)"} set.
 
             with open(ext_conf_path, 'w+') as f:
                 f.write(conf)
+
+            with open(csr_path, 'w+') as f:
+                f.write(csr)
 
             cmd = [
                 'openssl',
@@ -397,7 +397,7 @@ the arguments dn={"cn": "(some name here)"} set.
                 csr_path,
             ]
 
-            success, message = execute_cmd(cmd)
+            success, message = execute_cmd(cmd, text=csr)
             if success:
                 details = info.load_x509(message)
                 if details.get('serial'):

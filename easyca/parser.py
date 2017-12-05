@@ -85,7 +85,7 @@ def get_certificate_extensions_as_json(path):
         }
 
 
-def get_request_extensions_as_json(path):
+def get_request_extensions_as_json(path=None, text=None):
     cmd = [
         'openssl',
         'req',
@@ -95,10 +95,15 @@ def get_request_extensions_as_json(path):
         # No linebreak between the two below here
         'no_attributes,no_aux,no_header,no_issuer,no_pubkey,no_serial,'
         'no_sigdump,no_signame,no_subject,no_subject,no_validity,no_version',
-        '-in',
-        path
     ]
-    success, message = execute_cmd(cmd)
+    if path:
+        cmd += ['-in', path]
+        success, message = execute_cmd(cmd)
+    elif text:
+        success, message = execute_cmd(cmd, text=text)
+    else:
+        raise ValueError("Need either path or text")
+
     print(message)
     if not success:
         return {
@@ -112,9 +117,9 @@ def get_request_extensions_as_json(path):
         }
 
 
-def extract_san_from_req(path):
+def extract_san_from_req(path=None, text=None):
     san = []
-    res = get_request_extensions_as_json(path)
+    res = get_request_extensions_as_json(path=path, text=text)
     if not res.get("success"):
         return None
     for ext in res['extensions']:
