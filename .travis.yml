@@ -8,6 +8,9 @@ install:
   - pip install -r requirements.txt
 # command to run tests
 script:
+  # Show openssl version
+  - openssl version
+  # Run tests
   - python setup.py test
 notifications:
   email: false
