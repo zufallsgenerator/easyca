@@ -2,6 +2,7 @@
 # Get info only using openssl, no libraries
 
 import json
+import logging
 import pytz
 import re
 
@@ -10,6 +11,10 @@ from dateutil import parser as dateparser
 from .helpers import execute_cmd
 
 EXT_PREFIX = "X509v3 "
+
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 
 def parse_extensions_output(text):
@@ -29,7 +34,8 @@ def parse_extensions_output(text):
         line = lines[0]
         lines = lines[1:]
         if line.startswith(EXT_PREFIX):
-            print("in extension: {}".format(line))
+            log.debug("parse_extension_output -> in extension: {}".format(
+                line))
             if cur_header:
                 extensions.append({
                     "name": cur_header,
@@ -172,7 +178,6 @@ def transform_datestring(datestr):
 
 def transform_distinguished_name(name):
     ret = {}
-    print(name)
     rest = name
     while rest:
         m = re.search('\/([^\=]+)\=([^\/\=]+)', rest)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import glob
+import logging
 import os
 import tempfile
 
@@ -10,6 +11,9 @@ from .distinguished_name import (
     make_dn_section,
 )
 from .helpers import execute_cmd
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 
 class CA(object):
@@ -104,7 +108,7 @@ the arguments dn={"cn": "(some name here)"} set.
         """
         ca_path = self._ca_path
         dn_str = make_dn_section(dn)
-        print("dn_str is: {}".format(dn_str))
+        log.debug("dn_str is: {}".format(dn_str))
         self._make_ca_structure()
 
         key_path = os.path.join(ca_path, 'private', 'cakey.pem')
@@ -165,8 +169,8 @@ the arguments dn={"cn": "(some name here)"} set.
             '-infiles',
             careq_path,
         ]
-        print("Creating CA...")
-        print("{}".format(" ".join(cmd)))
+        log.debug("Creating CA...")
+        log.debug("{}".format(" ".join(cmd)))
         success, message = execute_cmd(cmd)
         if not success:
             raise Exception(message)
@@ -185,6 +189,7 @@ the arguments dn={"cn": "(some name here)"} set.
             }
 
     def _make_ca_structure(self):
+        log.info("Createing CA file structure at: '{}'".format(self._ca_path))
         basepath = self._ca_path
         folder_perms = [
             ('certsdb', 0o750),
@@ -355,10 +360,13 @@ the arguments dn={"cn": "(some name here)"} set.
             _, csr_path = tempfile.mkstemp(suffix='.csr')
 
             api_version = self._read_ca_version()
-            print("API version of CA: {}".format(api_version))
+            log.debug("sign_request -> API version of CA: {}".format(
+                api_version))
 
             alt_names = parser.extract_san_from_req(text=csr)
-            print(alt_names)
+            log.debug("sign_request -> alt_names: {}".format(alt_names))
+            log.info("Signing request. days: {}, altNames: {}".format(
+                90, alt_names))
 
             conf_path = os.path.join(self._ca_path, 'openssl.conf')
 
@@ -413,8 +421,8 @@ the arguments dn={"cn": "(some name here)"} set.
                     "serial": hex_serial,
                 }
             else:
-                print("cmd: {}".format(cmd))
-                print("conf\n----\n{}".format(conf))
+                log.warning("Signing failed: cmd: {}".format(cmd))
+                log.debug("conf\n----\n{}".format(conf))
                 return {
                     "success": False,
                     "message": message

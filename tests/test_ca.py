@@ -241,7 +241,6 @@ class Test(unittest.TestCase):
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
 
-        print(res_parsed)
         san = get_san_from_extensions(res_parsed['extensions'])
         expected_san = [
             'DNS:acme.org',
