@@ -2,9 +2,12 @@
 # Get info only using openssl, no libraries
 
 import json
+import pytz
+import re
 
+
+from dateutil import parser as dateparser
 from .helpers import execute_cmd
-
 
 EXT_PREFIX = "X509v3 "
 
@@ -59,7 +62,7 @@ def make_camel_case(text):
     return "".join(ret)
 
 
-def get_certificate_extensions_as_json(path):
+def get_x509_extensions(path=None, text=None):
     cmd = [
         'openssl',
         'x509',
@@ -69,23 +72,53 @@ def get_certificate_extensions_as_json(path):
         # No linebreak between the two below here
         'no_aux,no_header,no_issuer,no_pubkey,no_serial,no_sigdump,'
         'no_signame,no_subject,no_subject,no_validity,no_version',
-        '-in',
-        path
     ]
-    success, message = execute_cmd(cmd)
+
+    if path:
+        cmd += ['-in', path]
+        success, message = execute_cmd(cmd)
+    elif text is not None:
+        success, message = execute_cmd(cmd, text=text)
+    else:
+        raise ValueError("Need path or text")
+
     if not success:
-        return {
-            'success': False,
-            'message': message
-        }
-    if success:
-        return {
-            'success': True,
-            'extension': parse_extensions_output(message)
-        }
+        raise Exception(message)
+    return parse_extensions_output(message)
+
+
+def get_request_as_json(path=None, text=None):
+    if path and "-----" in path:
+        raise ValueError("Should probably be text, not path")
+
+    # TODO: missing: version, expired
+    cmd = [
+        'openssl',
+        'req',
+        '-noout',
+        '-subject',
+    ]
+    if path:
+        cmd += ['-in', path]
+        success, message = execute_cmd(cmd)
+    else:
+        success, message = execute_cmd(cmd, text)
+
+    if not success:
+        raise Exception(message)
+
+    details = parse_x509_output(message)
+
+    extensions = get_request_extensions_as_json(path=path, text=text)
+
+    assert('extensions' not in details)
+    details['extensions'] = extensions
+
+    return details
 
 
 def get_request_extensions_as_json(path=None, text=None):
+    # TODO: critical flag
     cmd = [
         'openssl',
         'req',
@@ -104,7 +137,6 @@ def get_request_extensions_as_json(path=None, text=None):
     else:
         raise ValueError("Need either path or text")
 
-    print(message)
     if not success:
         return {
             'success': False,
@@ -131,6 +163,99 @@ def extract_san_from_req(path=None, text=None):
                     san.append(p[idx + 1:])
 
     return san
+
+
+def transform_datestring(datestr):
+    return dateparser.parse(
+        datestr).astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def transform_distinguished_name(name):
+    ret = {}
+    print(name)
+    rest = name
+    while rest:
+        m = re.search('\/([^\=]+)\=([^\/\=]+)', rest)
+        if not m:
+            return ret
+        key, value = m.groups()
+        ret[key] = value
+        rest = rest[m.span()[1]:]
+
+    return ret
+
+
+def transform_serial(hexstring):
+    return int(hexstring, 16)
+
+
+FIELD_TRANSFORMERS = {
+    'notBefore': transform_datestring,
+    'notAfter': transform_datestring,
+    'subject': transform_distinguished_name,
+    'issuer': transform_distinguished_name,
+    'serial': transform_serial,
+}
+
+
+def transform_x509_field(key, raw_value):
+    transformer = FIELD_TRANSFORMERS.get(key)
+    if transformer:
+        return transformer(raw_value)
+
+    return raw_value
+
+
+def parse_x509_output(text):
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+    ret = {}
+    for line in lines:
+        try:
+            idx = line.index('=')
+        except ValueError:
+            continue
+        key = line[:idx]
+        raw_value = line[idx + 1:].strip()
+
+        value = transform_x509_field(key, raw_value)
+
+        ret[key] = value
+    return ret
+
+
+def get_x509_as_json(path=None, text=None):
+    if path and "-----" in path:
+        raise ValueError("Should probably be text, not path")
+
+    # TODO: missing: version, expired
+    cmd = [
+        'openssl',
+        'x509',
+        '-noout',
+        '-subject',
+        '-issuer',
+        '-startdate',
+        '-enddate',
+        '-serial',
+    ]
+    if path:
+        cmd += ['-in', path]
+        success, message = execute_cmd(cmd)
+    else:
+        success, message = execute_cmd(cmd, text)
+
+    if not success:
+        raise Exception(message)
+
+    details = parse_x509_output(message)
+
+    extensions = get_x509_extensions(path=path, text=text)
+
+    assert('extensions' not in details)
+    details['extensions'] = extensions
+
+    return details
 
 
 def test():

@@ -7,7 +7,7 @@ import unittest
 from context import (
     CA,
     DistinguishedName,
-    info,
+    parser,
 )
 from dateutil import (
     tz as du_tz,
@@ -57,7 +57,7 @@ def get_utcnow_round():
 
 def get_san_from_extensions(extensions):
     for ext in extensions:
-        if ext['name'] == 'subjectAltName':
+        if ext['name'] == 'subjectAlternativeName':
             return [
                 e.strip() for e in ext['str'].split(",")
             ]
@@ -98,7 +98,7 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
             res.get('message'), res.get("conf")))
 
-        res_parsed = info.load_x509(res.get('cert'))
+        res_parsed = parser.get_x509_as_json(text=res.get('cert'))
 
         san = get_san_from_extensions(res_parsed['extensions'])
 
@@ -136,7 +136,7 @@ class Test(unittest.TestCase):
         self.assertTrue(res_cert.get('success'), "Message: {}\n".format(
             res_cert.get('message')))
 
-        res_parsed = info.load_x509(res_cert.get('cert'))
+        res_parsed = parser.get_x509_as_json(text=res_cert.get('cert'))
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['CN'], 'example.com')
 
@@ -145,7 +145,7 @@ class Test(unittest.TestCase):
         self.assertTrue(res_cert_san.get('success'), "Message: {}\n".format(
             res_cert_san.get('message')))
 
-        res_parsed = info.load_x509(res_cert_san.get('cert'))
+        res_parsed = parser.get_x509_as_json(text=res_cert_san.get('cert'))
 
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
@@ -164,6 +164,98 @@ class Test(unittest.TestCase):
 
         requests = ca.list_requests()
         self.assertEqual(len(requests), 2)
+
+        certs = ca.list_certificates()
+        self.assertTrue(len(certs) > 0)
+
+        for cert in certs:
+            cert_res = ca.get_certificate(serial=cert['id'])
+            self.assertTrue(cert_res is not None)
+
+    def test_get_csr(self):
+        """Create a CA and sign certificates with it"""
+        ca_path = self.create_tempdir()
+        common_name = "Acme Root CA"
+        ca = CA(ca_path=ca_path)
+        res_ca = ca.initialize(
+            dn=dict(cn=common_name),
+            newkey='rsa:512',
+            alt_names=[
+                'example.com',
+                'www.example.com',
+                '192.168.56.100',
+                'hello@example.com',
+                'http://www.example.com',
+            ],
+        )
+        self.assertTrue(
+            res_ca.get('success'), "Message: {}\nConf: {}\n".format(
+                res_ca.get('message'), res_ca.get("conf")))
+
+        # CN certificate
+        res_cert = ca.sign_request(CSR_CN)
+        self.assertTrue(res_cert.get('success'), "Message: {}\n".format(
+            res_cert.get('message')))
+
+        csrs = ca.list_requests()
+        self.assertEqual(len(csrs), 1)
+
+        server_csr = ca.get_request(csrs[0]['id'])
+        self.assertTrue('subject' in server_csr)
+        self.assertEqual(server_csr['subject']['CN'], 'example.com')
+
+    def test_get_csr_san(self):
+        """Create a CA and sign certificates with it"""
+        ca_path = self.create_tempdir()
+        common_name = "Acme Root CA"
+        ca = CA(ca_path=ca_path)
+        res_ca = ca.initialize(
+            dn=dict(cn=common_name),
+            newkey='rsa:512',
+            alt_names=[
+                'example.com',
+                'www.example.com',
+                '192.168.56.100',
+                'hello@example.com',
+                'http://www.example.com',
+            ],
+        )
+        self.assertTrue(
+            res_ca.get('success'), "Message: {}\nConf: {}\n".format(
+                res_ca.get('message'), res_ca.get("conf")))
+
+        # SAN certificate
+        res_cert_san = ca.sign_request(CSR_SAN)
+        self.assertTrue(res_cert_san.get('success'), "Message: {}\n".format(
+            res_cert_san.get('message')))
+
+        csrs = ca.list_requests()
+        self.assertEqual(len(csrs), 1)
+
+        server_csr = ca.get_request(csrs[0]['id'])
+        self.assertTrue('subject' in server_csr)
+        self.assertEqual(server_csr['subject']['CN'], 'acme.org')
+
+        res_parsed = parser.get_x509_as_json(text=res_cert_san.get('cert'))
+
+        self.assertEqual(res_parsed['issuer']['CN'], common_name)
+        self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
+
+        print(res_parsed)
+        san = get_san_from_extensions(res_parsed['extensions'])
+        expected_san = [
+            'DNS:acme.org',
+            'DNS:cdn1.far-away.com',
+            'DNS:www.acme.org',
+            'IP Address:192.168.56.100'
+        ]
+        self.assertEqual(
+            sorted(san),
+            expected_san
+        )
+
+        requests = ca.list_requests()
+        self.assertEqual(len(requests), 1)
 
         certs = ca.list_certificates()
         self.assertTrue(len(certs) > 0)

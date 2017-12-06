@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from context import (
     core,
-    info,
     parser,
 )
 import unittest
@@ -48,6 +47,27 @@ D3b2JhkAAMG/ECc/Pdpb0JLZFNxid2XnK5/1ZxJuosdkL9MszFt9TfeHQHbxljt1
 /HoL3zy0d8ulR4qUq1M1gsVjUIb2NDWjjWgV9JYx1omOmeD5Ng==
 -----END CERTIFICATE REQUEST-----"""
 
+SIGNED_SAN = """-----BEGIN CERTIFICATE-----
+MIIDTDCCAjSgAwIBAgIJAPKF1aFIHOdxMA0GCSqGSIb3DQEBCwUAMA8xDTALBgNV
+BAMMBE15Q0EwHhcNMTcxMjA2MDczMTM3WhcNMTgwMzA2MDczMTM3WjAvMRowGAYD
+VQQKExFBY21lIE1hY2hpbmVzIElOQzERMA8GA1UEAxMIYWNtZS5vcmcwggEiMA0G
+CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDAiHjvbGuY2iiGUR6E0PZwI/qVpfBE
+A/bkPkv5MrzYtU87MkY+9cMn8G0DX7S6jBOGx+oNgFLepCeXVFrXJlrvCEmhKld/
+jUELII6+CtiA01R6pBz8LOyyZwc0cw/wZoSR44y9O6TmzXKjRySpFpLeMT6sGQLQ
+Z+3VyoJPleW5kkqnVxZkVsBNo0takFVYOClUpb2prQt3gUkeg/uENPEjag95ORX9
+6984Xiu1d2OxkYZBiGW8hhzZ3w6Ym8uKVm770UeT2qvjDuWSB6X/AD0ZI0/6FDTm
+PtIjyp3ZFGcMuJ2hpi5hUCeaNAtteM/QRrRL6pWD5DdegtxnJSAz2tC1AgMBAAGj
+gYowgYcwCQYDVR0TBAIwADAdBgNVHQ4EFgQU6dp0MUEyqCHbJAe6zCZGYdLBlgIw
+HwYDVR0jBBgwFoAUboY0BA4M28nYzfBcWUYhiAtnVwcwOgYDVR0RBDMwMYIIYWNt
+ZS5vcmeCDHd3dy5hY21lLm9yZ4IRY2RuMS5mYXItYXdheS5jb22HBMCoOGQwDQYJ
+KoZIhvcNAQELBQADggEBADmbxTonhGvN+DpFuzSNleFgMGy+GA8uC3S6hzGHU0op
+9HmEDPDMh33t7sKM4YmsWsUTIndeS2xmYPDn7i6LKjNwlEflAZppWfF01G2RDJmO
+bqXulA2g528pneiRjuJVF//sMq95kBpyNvkwUtqP6E35UaBaM891Qy7+m/+vriIk
+y8OqjeXlxG1pSBz5hlBedgJEfujUIuy7DpMArn17U5edba9B3fCPmaUyKaff0cS8
+xrTb5dAfL9vHYAjPsrtyP1/wQHfgIyTTmO3Tet3OInoLmnBkBnmpuEzKsimC/anX
+Hc4JnbaBFQ9V56i3jV443nahu0kgXSOoUuv1c0z4oFw=
+-----END CERTIFICATE-----"""
+
 
 def get_utcnow_round():
     return datetime.datetime.utcnow().replace(
@@ -58,7 +78,7 @@ def get_utcnow_round():
 
 def get_san_from_extensions(extensions):
     for ext in extensions:
-        if ext['name'] == 'subjectAltName':
+        if ext['name'] == 'subjectAlternativeName':
             return [
                 e.strip() for e in ext['str'].split(",")
             ]
@@ -108,7 +128,7 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
 
-        res_parsed = info.load_x509(res.get('cert'))
+        res_parsed = parser.get_x509_as_json(text=res.get('cert'))
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
@@ -142,7 +162,7 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
 
-        res_parsed = info.load_x509(res.get('cert'))
+        res_parsed = parser.get_x509_as_json(text=res.get('cert'))
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
@@ -174,6 +194,11 @@ class Test(unittest.TestCase):
                     "www.acme.org",
                 ]
             )
+
+    def test_load_x509(self):
+        res = parser.get_x509_as_json(text=SIGNED_SAN)
+        print(json.dumps(res, indent=4))
+
 
 
 

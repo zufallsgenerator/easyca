@@ -3,7 +3,6 @@ import glob
 import os
 import tempfile
 
-from . import info
 from . import parser
 from .core import make_san_section
 from .distinguished_name import (
@@ -227,7 +226,7 @@ the arguments dn={"cn": "(some name here)"} set.
                 with open(os.path.join(ca_path, 'cacert.pem')) as f:
                     buf = f.read()
 
-                details = info.load_x509(buf)
+                details = parser.get_x509_as_json(buf)
             except Exception as e:
                 details = {
                     "error": str(e)
@@ -274,10 +273,8 @@ the arguments dn={"cn": "(some name here)"} set.
         path = os.path.join(self._ca_path, 'certreqs', serial + '.csr')
         if not os.path.exists(path):
             raise ValueError(path)
-            return None
 
-        with open(path) as f:
-            return info.load_csr(f.read())
+        return parser.get_request_as_json(path=path)
 
     def list_certificates(self):
         """Get a list of signed certificates"""
@@ -308,8 +305,7 @@ the arguments dn={"cn": "(some name here)"} set.
         """Get details of a signed certificate"""
         path = self._get_cert_path(serial=serial)
         if os.path.exists(path):
-            with open(path) as f:
-                parsed = info.load_x509(f.read())
+            parsed = parser.get_x509_as_json(path=path)
             return {
                 "success": True,
                 "details": parsed,
@@ -399,7 +395,7 @@ the arguments dn={"cn": "(some name here)"} set.
 
             success, message = execute_cmd(cmd, text=csr)
             if success:
-                details = info.load_x509(message)
+                details = parser.get_x509_as_json(text=message)
                 if details.get('serial'):
                     serial = details.get('serial')
                     csr_db_path = os.path.join(

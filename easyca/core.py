@@ -7,12 +7,10 @@ import os
 import shutil
 import tempfile
 
-import OpenSSL
 
 from . import distinguished_name
 from . import san
 from .helpers import execute_cmd
-from .info import load_x509
 
 
 # references:
