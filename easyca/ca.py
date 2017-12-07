@@ -33,9 +33,9 @@ def parse_cert_index_date(date_str):
 
 
 def epoch_to_date(epoch):
-    return datetime.datetime.fromtimestamp(
+    return datetime.datetime.utcfromtimestamp(
         epoch
-    ).astimezone(pytz.utc).strftime(ISODATE_TPL)
+    ).replace(tzinfo=pytz.utc).strftime(ISODATE_TPL)
 
 
 class CA(object):
