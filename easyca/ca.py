@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
+import datetime
 import glob
 import logging
 import os
 import tempfile
+
+from dateutil.parser import parse as parse_date
+
+import pytz
 
 from . import parser
 from .core import make_san_section
@@ -14,6 +19,23 @@ from .helpers import execute_cmd
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+
+
+ISODATE_TPL = '%Y-%m-%dT%H:%M:%SZ'
+
+
+def parse_cert_index_date(date_str):
+    if len(date_str) == 13 and date_str[12] == 'Z':
+        dt = parse_date('20' + date_str)
+        return dt.strftime(ISODATE_TPL)
+    else:
+        return date_str
+
+
+def epoch_to_date(epoch):
+    return datetime.datetime.fromtimestamp(
+        epoch
+    ).astimezone(pytz.utc).strftime(ISODATE_TPL)
 
 
 class CA(object):
@@ -269,7 +291,7 @@ the arguments dn={"cn": "(some name here)"} set.
                 item_id = basename[:-len(suffix)]
                 ret.append({
                     "id": item_id,
-                    "last_modified": last_modified,
+                    "last_modified": epoch_to_date(last_modified),
                 })
         return ret
 
@@ -300,13 +322,14 @@ the arguments dn={"cn": "(some name here)"} set.
                     [c.strip() for c in line.split('\t')]
                 ret.append(dict(
                     status=status,
-                    expires=expires,
+                    expires=parse_cert_index_date(expires),
                     revoked=revoked,
                     id=serial,
                     filename=None if filename == 'unknown' else filename,
                     name=name,
                 ))
             except Exception as e:
+                logging.error("CA.list_certificates -> {}".format(e))
                 errors.append(str(e))
         return ret
 
