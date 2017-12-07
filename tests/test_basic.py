@@ -12,6 +12,8 @@ from dateutil import (
 import datetime
 import tempfile
 import shutil
+import os
+
 
 CSR_CN = """-----BEGIN CERTIFICATE REQUEST-----
 MIICWzCCAUMCAQAwFjEUMBIGA1UEAxMLZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3
@@ -88,6 +90,12 @@ def get_san_from_extensions(extensions):
 class Test(unittest.TestCase):
     def setUp(self):
         self._tempdirs = []
+        self._openssl_path = os.environ.get(
+            "OPENSSL", self._get_openssl_path())
+
+    def _get_openssl_path(self):
+        with os.popen('which openssl') as f:
+            return f.read().strip()
 
     def tearDown(self):
         for path in self._tempdirs:
@@ -128,7 +136,10 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
 
-        res_parsed = parser.get_x509_as_json(text=res.get('cert'))
+        res_parsed = parser.get_x509_as_json(
+            text=res.get('cert'),
+            openssl_path=self._openssl_path,
+        )
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
@@ -162,7 +173,10 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
 
-        res_parsed = parser.get_x509_as_json(text=res.get('cert'))
+        res_parsed = parser.get_x509_as_json(
+            text=res.get('cert'),
+            openssl_path=self._openssl_path,
+        )
 
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
@@ -184,7 +198,10 @@ class Test(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix='.csr', mode='w+') as f:
             f.write(CSR_SAN)
             f.flush()
-            san = parser.extract_san_from_req(f.name)
+            san = parser.extract_san_from_req(
+                path=f.name,
+                openssl_path=self._openssl_path,
+            )
             self.assertEqual(
                 sorted(san),
                 [
@@ -196,10 +213,9 @@ class Test(unittest.TestCase):
             )
 
     def test_load_x509(self):
-        res = parser.get_x509_as_json(text=SIGNED_SAN)
+        res = parser.get_x509_as_json(
+            text=SIGNED_SAN, openssl_path=self._openssl_path)
         print(json.dumps(res, indent=4))
-
-
 
 
 if __name__ == "__main__":

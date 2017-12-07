@@ -43,11 +43,24 @@ class CA(object):
     as a flat-file database.
 
     :param ca_path: path where to create the required folder structure
+    :param openssl_path: path of openssl binary to use
     """
-    def __init__(self, ca_path=None):
+    def __init__(self, ca_path=None, openssl_path=None):
         if not ca_path:
             raise ValueError("Missing ca_path")
         self._ca_path = ca_path
+        if openssl_path:
+            self._openssl_path = openssl_path
+        else:
+            self._openssl_path = self._get_openssl_path()
+
+    def _get_openssl_path(self):
+        """Get openssl binary in path
+
+        :return string: openssl path
+        """
+        with os.popen('which openssl') as f:
+            return f.read().strip()
 
     DB_VERSION = 1
     _DB_VERSION_FILENAME = "db_version.txt"
@@ -152,7 +165,7 @@ the arguments dn={"cn": "(some name here)"} set.
             f.write(conf)
 
         cmd = [
-            'openssl',
+            self._openssl_path,
             'req',
             '-nodes',
             '-new',
@@ -174,7 +187,7 @@ the arguments dn={"cn": "(some name here)"} set.
             }
 
         cmd = [
-            'openssl',
+            self._openssl_path,
             'ca',
             '-config',
             config_path,
@@ -257,7 +270,10 @@ the arguments dn={"cn": "(some name here)"} set.
                 with open(os.path.join(ca_path, 'cacert.pem')) as f:
                     buf = f.read()
 
-                details = parser.get_x509_as_json(buf)
+                details = parser.get_x509_as_json(
+                    text=buf,
+                    openssl_path=self._openssl_path,
+                )
             except Exception as e:
                 details = {
                     "error": str(e)
@@ -305,7 +321,8 @@ the arguments dn={"cn": "(some name here)"} set.
         if not os.path.exists(path):
             raise ValueError(path)
 
-        return parser.get_request_as_json(path=path)
+        return parser.get_request_as_json(
+            path=path, openssl_path=self._openssl_path)
 
     def list_certificates(self):
         """Get a list of signed certificates"""
@@ -337,7 +354,8 @@ the arguments dn={"cn": "(some name here)"} set.
         """Get details of a signed certificate"""
         path = self._get_cert_path(serial=serial)
         if os.path.exists(path):
-            parsed = parser.get_x509_as_json(path=path)
+            parsed = parser.get_x509_as_json(
+                path=path, openssl_path=self._openssl_path)
             return {
                 "success": True,
                 "details": parsed,
@@ -352,7 +370,7 @@ the arguments dn={"cn": "(some name here)"} set.
         cert_path = self._get_cert_path(serial=serial)
         config_path = os.path.join(self._ca_path, 'openssl.conf')
         cmd = [
-            'openssl',
+            self._openssl_path,
             'ca',
             '-config',
             config_path,
@@ -390,7 +408,10 @@ the arguments dn={"cn": "(some name here)"} set.
             log.debug("sign_request -> API version of CA: {}".format(
                 api_version))
 
-            alt_names = parser.extract_san_from_req(text=csr)
+            alt_names = parser.extract_san_from_req(
+                text=csr,
+                openssl_path=self._openssl_path,
+            )
             log.debug("sign_request -> alt_names: {}".format(alt_names))
             log.info("Signing request. days: {}, altNames: {}".format(
                 90, alt_names))
@@ -411,7 +432,7 @@ the arguments dn={"cn": "(some name here)"} set.
                 f.write(csr)
 
             cmd = [
-                'openssl',
+                self._openssl_path,
                 'ca',
                 '-batch',
                 '-name',
@@ -430,7 +451,10 @@ the arguments dn={"cn": "(some name here)"} set.
 
             success, message = execute_cmd(cmd, text=csr)
             if success:
-                details = parser.get_x509_as_json(text=message)
+                details = parser.get_x509_as_json(
+                    text=message,
+                    openssl_path=self._openssl_path
+                )
                 if details.get('serial'):
                     serial = details.get('serial')
                     csr_db_path = os.path.join(

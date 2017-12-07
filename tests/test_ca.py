@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import datetime
+import os
 import shutil
 import tempfile
 import unittest
@@ -67,6 +68,12 @@ def get_san_from_extensions(extensions):
 class Test(unittest.TestCase):
     def setUp(self):
         self._tempdirs = []
+        self._openssl_path = os.environ.get(
+            "OPENSSL", self._get_openssl_path())
+
+    def _get_openssl_path(self):
+        with os.popen('which openssl') as f:
+            return f.read().strip()
 
     def tearDown(self):
         for path in self._tempdirs:
@@ -98,7 +105,10 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
             res.get('message'), res.get("conf")))
 
-        res_parsed = parser.get_x509_as_json(text=res.get('cert'))
+        res_parsed = parser.get_x509_as_json(
+            text=res.get('cert'),
+            openssl_path=self._openssl_path
+        )
 
         san = get_san_from_extensions(res_parsed['extensions'])
 
@@ -136,7 +146,9 @@ class Test(unittest.TestCase):
         self.assertTrue(res_cert.get('success'), "Message: {}\n".format(
             res_cert.get('message')))
 
-        res_parsed = parser.get_x509_as_json(text=res_cert.get('cert'))
+        res_parsed = parser.get_x509_as_json(
+            text=res_cert.get('cert'),
+            openssl_path=self._openssl_path)
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['CN'], 'example.com')
 
@@ -145,7 +157,9 @@ class Test(unittest.TestCase):
         self.assertTrue(res_cert_san.get('success'), "Message: {}\n".format(
             res_cert_san.get('message')))
 
-        res_parsed = parser.get_x509_as_json(text=res_cert_san.get('cert'))
+        res_parsed = parser.get_x509_as_json(
+            text=res_cert_san.get('cert'),
+            openssl_path=self._openssl_path)
 
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
@@ -236,7 +250,8 @@ class Test(unittest.TestCase):
         self.assertTrue('subject' in server_csr)
         self.assertEqual(server_csr['subject']['CN'], 'acme.org')
 
-        res_parsed = parser.get_x509_as_json(text=res_cert_san.get('cert'))
+        res_parsed = parser.get_x509_as_json(
+            text=res_cert_san.get('cert'), openssl_path=self._openssl_path)
 
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')

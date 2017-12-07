@@ -68,9 +68,10 @@ def make_camel_case(text):
     return "".join(ret)
 
 
-def get_x509_extensions(path=None, text=None):
+def get_x509_extensions(path=None, text=None, openssl_path=None):
+    assert(openssl_path)
     cmd = [
-        'openssl',
+        openssl_path,
         'x509',
         '-text',
         '-noout',
@@ -93,13 +94,14 @@ def get_x509_extensions(path=None, text=None):
     return parse_extensions_output(message)
 
 
-def get_request_as_json(path=None, text=None):
+def get_request_as_json(path=None, text=None, openssl_path=None):
+    assert(openssl_path)
     if path and "-----" in path:
         raise ValueError("Should probably be text, not path")
 
     # TODO: missing: version, expired
     cmd = [
-        'openssl',
+        openssl_path,
         'req',
         '-noout',
         '-subject',
@@ -115,7 +117,8 @@ def get_request_as_json(path=None, text=None):
 
     details = parse_x509_output(message)
 
-    extensions = get_request_extensions_as_json(path=path, text=text)
+    extensions = get_request_extensions_as_json(
+        path=path, text=text, openssl_path=openssl_path)
 
     assert('extensions' not in details)
     details['extensions'] = extensions
@@ -123,10 +126,11 @@ def get_request_as_json(path=None, text=None):
     return details
 
 
-def get_request_extensions_as_json(path=None, text=None):
+def get_request_extensions_as_json(path=None, text=None, openssl_path=None):
+    assert(openssl_path)
     # TODO: critical flag
     cmd = [
-        'openssl',
+        openssl_path,
         'req',
         '-text',
         '-noout',
@@ -155,9 +159,13 @@ def get_request_extensions_as_json(path=None, text=None):
         }
 
 
-def extract_san_from_req(path=None, text=None):
+def extract_san_from_req(path=None, text=None, openssl_path=None):
+    if openssl_path is None:
+        raise ValueError("Need openssl_path to be set")
     san = []
-    res = get_request_extensions_as_json(path=path, text=text)
+    res = get_request_extensions_as_json(
+        path=path, text=text, openssl_path=openssl_path
+    )
     if not res.get("success"):
         return None
     for ext in res['extensions']:
@@ -229,13 +237,14 @@ def parse_x509_output(text):
     return ret
 
 
-def get_x509_as_json(path=None, text=None):
+def get_x509_as_json(path=None, text=None, openssl_path=None):
+    assert(openssl_path)
     if path and "-----" in path:
         raise ValueError("Should probably be text, not path")
 
     # TODO: missing: version, expired
     cmd = [
-        'openssl',
+        openssl_path,
         'x509',
         '-noout',
         '-subject',
@@ -255,7 +264,8 @@ def get_x509_as_json(path=None, text=None):
 
     details = parse_x509_output(message)
 
-    extensions = get_x509_extensions(path=path, text=text)
+    extensions = get_x509_extensions(
+        path=path, text=text, openssl_path=openssl_path)
 
     assert('extensions' not in details)
     details['extensions'] = extensions
