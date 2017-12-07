@@ -24,7 +24,7 @@ def cmd_cert(ca, args):
     cmd = args.cert
     if cmd == 'list':
         certs = ca.list_certificates()
-        print_list(certs, ['name', 'id', 'status', 'status', 'revoked'])
+        print_list(certs, ['id', 'name', 'status', 'revoked', 'expires'])
     elif cmd == 'show':
         print(ca.get_certificate(args.cert_id))
 
