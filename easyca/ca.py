@@ -107,6 +107,10 @@ the arguments dn={"cn": "(some name here)"} set.
         :returns: a dict with the members *success* and *message* always set
         """
         ca_path = self._ca_path
+
+        if dn is None:
+            raise Exception("missing argument dn")
+
         dn_str = make_dn_section(dn)
         log.debug("dn_str is: {}".format(dn_str))
         self._make_ca_structure()
