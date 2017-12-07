@@ -297,7 +297,7 @@ the arguments dn={"cn": "(some name here)"} set.
         for line in lines:
             try:
                 status, expires, revoked, serial, filename, name =\
-                    line.split('\t')
+                    [c.strip() for c in line.split('\t')]
                 ret.append(dict(
                     status=status,
                     expires=expires,
