@@ -2,56 +2,11 @@
 
 import os
 import sys
-import math
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from easyca.ca import CA  # noqa
-
-
-def get_term_width():
-    # TODO: caching?
-    rows, columns = os.popen('stty size', 'r').read().split()
-    return int(columns)
-
-
-def print_list(l, keys=None):
-    if len(l) == 0:
-        print("(empty)")
-        return
-
-    if not keys:
-        keys = sorted(l[0].keys())
-
-    max_width = get_term_width() - 1
-    widths = {}
-
-    w_each = math.floor((max_width - len(keys) + 1) / 1.0 / len(keys))
-    for key in keys:
-        widths[key] = w_each
-
-    tpl = ' '.join(['{' + key + ':<' + str(widths[key]) + '}' for key in keys])
-    header = tpl.format(
-        **dict(zip(keys, [k.upper()[:widths[key]] for k in keys]))
-    )
-    print(header)
-    print('-' * len(header))
-
-    item_tpl = dict(zip(keys, [''] * len(keys)))
-
-    for item in l:
-        safe_item = dict(item_tpl.items())
-        for key in keys:
-            if item.get(key) is not None:
-                as_str = str(item[key]).strip()
-                w = widths[key]
-                if len(as_str) > w and w > 1:
-                    as_str = as_str[:w - 1] + u"\u2026"
-                else:
-                    as_str = as_str[:w]
-
-                safe_item[key] = as_str
-        print(tpl.format(**safe_item))
+from easyca.ca import CA            # noqa
+from easyca.fmt import print_list   # noqa
 
 
 def cmd_ca(ca, args):
@@ -60,15 +15,16 @@ def cmd_ca(ca, args):
         print(ca.get_info())
     elif cmd == "init":
         ret = ca.initialize()
+        print(ret)
     else:
-        raise Exception("Subcommand '{}'' not implemented yet!".format(arg))
+        raise Exception("Subcommand '{}'' not implemented yet!".format(cmd))
 
 
 def cmd_cert(ca, args):
     cmd = args.cert
     if cmd == 'list':
         certs = ca.list_certificates()
-        print_list(certs)
+        print_list(certs, ['name', 'id', 'status', 'status', 'revoked'])
     elif cmd == 'show':
         print(ca.get_certificate(args.cert_id))
 
@@ -79,7 +35,7 @@ def cmd_req(ca, args):
         certs = ca.list_requests()
         print_list(certs)
     elif cmd == 'show':
-        print(ca.get_request(args.cert_id))
+        print(ca.get_request(args.req_id))
 
 
 def add_parser_cert(parent_parser):
