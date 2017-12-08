@@ -2,7 +2,9 @@
 
 set +e
 
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/base.bash
 CMD="python ${DIR}/../easyca/cli.py"
 
 TEMPDIR=$(mktemp -d -t easyca_test.XXXXX)
@@ -25,15 +27,5 @@ EXITCODES+=($?)
 
 
 rm -rf $TEMPDIR
-echo "All tests done, results: ${EXITCODES[*]}"
 
-for exitcode in "${EXITCODES[@]}"
-do
-	:
-	if [[ $exitcode != 0 ]]; then
-		echo "*** Test suite failed"
-		exit $exitcode
-	fi
-done
-echo "Success"
-exit 0
+end_test $EXITCODES
