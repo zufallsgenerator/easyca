@@ -6,10 +6,10 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CMD="python ${DIR}/../easyca/cli.py"
 
 TEMPDIR=$(mktemp -d -t easyca_test.XXXXX)
-CA_PATH=$TEMPDIR
+#CA_PATH=$TEMPDIR
 
 echo "### Init CA without --common-name should fail"
-$CMD ca init 2&> /dev/null
+$CMD --ca-path=$TEMPDIR ca init 2&> /dev/null
 # Negate the exit code
 if [[ $? == 0 ]]; then
 	echo "*** Expected exitcode != 0"
@@ -20,7 +20,7 @@ fi
 
 
 echo "### Should Init CA"
-$CMD ca init --common-name="example.com" > /dev/null
+$CMD --ca-path=$TEMPDIR ca init --common-name="example.com" > /dev/null
 EXITCODES+=($?)
 
 
