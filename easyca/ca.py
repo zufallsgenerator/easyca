@@ -29,6 +29,14 @@ def parse_cert_index_date(date_str):
         return date_str
 
 
+def parse_revoked_str(revoked_str):
+    if "," in revoked_str:
+        date_str, reason = revoked_str.split(",")[:2]
+        return parse_cert_index_date(date_str), reason
+    else:
+        return parse_cert_index_date(revoked_str), None
+
+
 def epoch_to_date(epoch):
     return arrow.get(epoch).strftime(ISODATE_TPL)
 
@@ -333,10 +341,12 @@ the arguments dn={"cn": "(some name here)"} set.
             try:
                 status, expires, revoked, serial, filename, name =\
                     [c.strip() for c in line.split('\t')]
+                revoked_date, revoked_reason = parse_revoked_str(revoked)
                 ret.append(dict(
                     status=status,
                     expires=parse_cert_index_date(expires),
-                    revoked=revoked,
+                    revoked=revoked_date,
+                    revoked_reason=revoked_reason,
                     id=serial,
                     filename=None if filename == 'unknown' else filename,
                     name=name,
@@ -472,6 +482,7 @@ the arguments dn={"cn": "(some name here)"} set.
                 }
             else:
                 log.warning("Signing failed: cmd: {}".format(cmd))
+                log.warning("Error:\n{}".format(message))
                 log.debug("conf\n----\n{}".format(conf))
                 return {
                     "success": False,

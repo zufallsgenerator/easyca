@@ -7,11 +7,17 @@ sys.path.insert(
 
 import arrow                        # noqa
 from easyca.ca import CA            # noqa
-from easyca.fmt import print_list   # noqa
+from easyca.fmt import (
+    print_list,
+    print_dict,
+)
+import json
 
 
 def str_to_relative_time(date_string):
-    return arrow.get(date_string).humanize()
+    if date_string:
+        return arrow.get(date_string).humanize()
+    return ""
 
 
 def error_exit(message):
@@ -22,10 +28,10 @@ def error_exit(message):
 def cmd_ca(ca, args):
     cmd = args.ca
     if cmd == 'show':
-        print(ca.get_info())
+        print_dict(ca.get_info())
     elif cmd == "init":
         ret = ca.initialize(dn=dict(cn=args.common_name))
-        print(ret)
+        print_dict(ret)
     else:
         raise Exception("Subcommand '{}'' not implemented yet!".format(cmd))
 
@@ -36,8 +42,21 @@ def cmd_cert(ca, args):
         certs = ca.list_certificates()
         print_list(
             certs,
-            keys=['id', 'name', 'status', 'revoked', 'expires'],
-            field_formatters={'expires': str_to_relative_time},
+            keys=[
+                'id',
+                'name',
+                'status',
+                'revoked',
+                'revoked_reason',
+                'expires'
+            ],
+#            headers={
+#                'revoked_reason': 'Reason'
+#            }
+            field_formatters={
+                'expires': str_to_relative_time,
+                'revoked': str_to_relative_time,
+            },
         )
     elif cmd == 'show':
         try:
@@ -45,7 +64,11 @@ def cmd_cert(ca, args):
         except LookupError:
             error_exit("Certificate with id '{}' not found.".format(
                 args.cert_id))
-        print(cert)
+        print_dict(cert)
+
+    elif cmd == 'revoke':
+        res = ca.revoke_certificate(args.cert_id)
+        print("Result of revoking: {}".format(res))
 
 
 def cmd_req(ca, args):
@@ -60,23 +83,30 @@ def cmd_req(ca, args):
             req = ca.get_request(args.req_id)
         except LookupError:
             error_exit("Request with id '{}' not found".format(args.req_id))
-        print(req)
+        print_dict(req)
+    elif cmd == 'sign':
+        with open(args.req_path) as f:
+            csr = f.read()
+        ca.sign_request(csr)
 
 
 def add_parser_cert(parent_parser):
     parser = parent_parser.add_parser('cert')
     sub = parser.add_subparsers(dest='cert')
+
     sub.add_parser('list')
     sub.add_parser('show').add_argument('cert_id', type=str)
-    sub.add_parser('revoke')
+    sub.add_parser('revoke').add_argument('cert_id', type=str)
+    return parser
 
 
 def add_parser_req(parent_parser):
     parser = parent_parser.add_parser('req')
     sub = parser.add_subparsers(dest='req')
     sub.add_parser('list')
-    sub.add_parser('sign')
+    sub.add_parser('sign').add_argument('req_path', type=str)
     sub.add_parser('show').add_argument('req_id', type=str)
+    return parser
 
 
 def cmd_main():
@@ -104,10 +134,10 @@ def cmd_main():
     parser_ca.add_argument('--common-name', type=str, default=None)
 
     # Handle CSR
-    add_parser_req(subparsers)
+    parser_req = add_parser_req(subparsers)
 
     # Handle signed certificates
-    add_parser_cert(subparsers)
+    parser_cert = add_parser_cert(subparsers)
 
     args = parser.parse_args()
     if not args.cmd:
@@ -129,9 +159,15 @@ def cmd_main():
         cmd_ca(ca, args)
 
     if args.cmd == 'cert':
+        if not args.cert:
+            parser_cert.print_usage()
+            sys.exit(1)
         cmd_cert(ca, args)
 
     if args.cmd == 'req':
+        if not args.req:
+            parser_req.print_usage()
+            sys.exit(1)
         cmd_req(ca, args)
 
 
