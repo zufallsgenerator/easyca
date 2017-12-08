@@ -1,3 +1,4 @@
+import json
 import os
 import math
 import string
@@ -47,7 +48,38 @@ def get_col_widths(l):
 
 
 def header_formatter_capwords(header):
-    return string.capwords(header.replace("_", " ").format(string.capwords))
+    return string.capwords(header.replace("_", " "))
+
+
+def print_dict(d, level=0):
+    pad = "    " * level
+    for key, value in d.items():
+        header = header_formatter_capwords(key)
+        if type(value) is dict:
+            print(pad + header)
+            print_dict(value, level=level + 1)
+        elif type(value) in (list, tuple):
+            print(pad + header)
+            print_dict_list(value, level=level + 1)
+        else:
+            if type(value) is str and '\n' in value:
+                print(pad + header + ":")
+                for idx, line in enumerate(value.splitlines()):
+                    print(pad + "     " + line)
+            else:
+                print(pad + header + ": " + str(value))
+
+
+def print_dict_list(l, level=0):
+    pad = "    " * level
+    for value in l:
+        if type(value) is dict:
+            print_dict(value, level=level + 1)
+            print("")
+        elif type(value) is list:
+            print_dict_list(value, level=level + 1)
+        else:
+            print(pad + str(value))
 
 
 def print_list(l, keys=None, header_formatter=None, field_formatters=None):
