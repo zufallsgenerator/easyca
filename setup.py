@@ -57,4 +57,7 @@ setup(
     packages=find_packages(exclude=('tests', 'docs')),
     tests_require=['pytest'],
     cmdclass={'test': PyTest},
+    entry_points = {
+        'console_scripts': ['ca=easyca.cli:cmd_main'],
+    }
 )
