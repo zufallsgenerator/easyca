@@ -5,7 +5,7 @@ set +e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CMD="python ${DIR}/../easyca/cli.py"
 
-TEMPDIR=$(mktemp -d -t easyca_test)
+TEMPDIR=$(mktemp -d -t easyca_test.XXXXX)
 CA_PATH=$TEMPDIR
 
 echo "### Init CA without --common-name should fail"
