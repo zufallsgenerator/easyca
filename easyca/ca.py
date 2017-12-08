@@ -310,11 +310,12 @@ the arguments dn={"cn": "(some name here)"} set.
         """Get details of a certificate signing request
 
         :param serial: serial number of request
+        :raise LookupError: request with serial not found
         :return: a dict with information
         """
         path = os.path.join(self._ca_path, 'certreqs', serial + '.csr')
         if not os.path.exists(path):
-            raise ValueError(path)
+            raise LookupError(path)
 
         return parser.get_request_as_json(
             path=path, openssl_path=self._openssl_path)
@@ -346,7 +347,12 @@ the arguments dn={"cn": "(some name here)"} set.
         return ret
 
     def get_certificate(self, serial=None):
-        """Get details of a signed certificate"""
+        """Get details of a signed certificate
+
+        :param serial: serial number of request
+        :raise LookupError: certificate with serial not found
+        :return: a dict with information
+        """
         path = self._get_cert_path(serial=serial)
         if os.path.exists(path):
             parsed = parser.get_x509_as_json(
@@ -356,10 +362,8 @@ the arguments dn={"cn": "(some name here)"} set.
                 "details": parsed,
             }
         else:
-            return {
-                "message": "File not found",
-                "success": False,
-            }
+            raise LookupError("Certificate with serial '{}' not found".format(
+                serial))
 
     def revoke_certificate(self, serial=None):
         cert_path = self._get_cert_path(serial=serial)

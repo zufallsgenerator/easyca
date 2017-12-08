@@ -14,6 +14,11 @@ def str_to_relative_time(date_string):
     return arrow.get(date_string).humanize()
 
 
+def error_exit(message):
+    sys.stderr.write(message + '\n')
+    sys.exit(1)
+
+
 def cmd_ca(ca, args):
     cmd = args.ca
     if cmd == 'show':
@@ -35,7 +40,12 @@ def cmd_cert(ca, args):
             field_formatters={'expires': str_to_relative_time},
         )
     elif cmd == 'show':
-        print(ca.get_certificate(args.cert_id))
+        try:
+            cert = ca.get_certificate(args.cert_id)
+        except LookupError:
+            error_exit("Certificate with id '{}' not found.".format(
+                args.cert_id))
+        print(cert)
 
 
 def cmd_req(ca, args):
@@ -46,7 +56,11 @@ def cmd_req(ca, args):
             certs,
             field_formatters={'last_modified': str_to_relative_time})
     elif cmd == 'show':
-        print(ca.get_request(args.req_id))
+        try:
+            req = ca.get_request(args.req_id)
+        except LookupError:
+            error_exit("Request with id '{}' not found".format(args.req_id))
+        print(req)
 
 
 def add_parser_cert(parent_parser):

@@ -87,6 +87,20 @@ class Test(unittest.TestCase):
         self._tempdirs.append(tempdir)
         return tempdir
 
+    def init_ca(self):
+        ca_path = self.create_tempdir()
+        common_name = "Acme Root CA"
+        ca = CA(ca_path=ca_path)
+        res_ca = ca.initialize(
+            dn=dict(cn=common_name),
+            newkey='rsa:512',
+            alt_names=[
+                'example.com',
+            ],
+        )
+        self.assertTrue(res_ca.get('success'))
+        return ca
+
     def test_create_ca(self):
         ca_path = self.create_tempdir()
         common_name = "Acme Root CA"
@@ -285,6 +299,26 @@ class Test(unittest.TestCase):
         d = dict(cn='KalleAnka')
         dn = DistinguishedName(**d)
         self.assertEqual(dn['cn'], "KalleAnka")
+
+    def test_certificate_lookup_failure(self):
+        """Lookup failure of certificate should raise LookupError."""
+        ca = self.init_ca()
+        got_lookup_error = False
+        try:
+            ca.get_certificate('1kl23qwioeu123io')
+        except LookupError:
+            got_lookup_error = True
+        self.assertTrue(got_lookup_error)
+
+    def test_request_lookup_failure(self):
+        """Lookup failure of certificate should raise LookupError."""
+        ca = self.init_ca()
+        got_lookup_error = False
+        try:
+            ca.get_request('1kl23qwioeu123io')
+        except LookupError:
+            got_lookup_error = True
+        self.assertTrue(got_lookup_error)
 
 
 if __name__ == "__main__":
