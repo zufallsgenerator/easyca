@@ -24,7 +24,7 @@ def cmd_ca(ca, args):
     if cmd == 'show':
         print(ca.get_info())
     elif cmd == "init":
-        ret = ca.initialize()
+        ret = ca.initialize(dn=dict(cn=args.common_name))
         print(ret)
     else:
         raise Exception("Subcommand '{}'' not implemented yet!".format(cmd))
@@ -101,7 +101,7 @@ def cmd_main():
         'ca',
         description='Initialize or show information about the root CA')
     parser_ca.add_argument('ca', type=str, choices=['init', 'show'])
-    parser_ca.add_argument('--common-name', type=str)
+    parser_ca.add_argument('--common-name', type=str, default=None)
 
     # Handle CSR
     add_parser_req(subparsers)
@@ -134,7 +134,6 @@ def cmd_main():
     if args.cmd == 'req':
         cmd_req(ca, args)
 
-#    print(args)
 
     # Commands
     # ca [show|init]
