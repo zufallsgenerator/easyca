@@ -1,3 +1,4 @@
 python-dateutil>=2.0
+arrow>=0.12
 pytz
 pytest>=2.4

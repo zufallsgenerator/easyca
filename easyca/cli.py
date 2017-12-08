@@ -5,8 +5,13 @@ import sys
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import arrow                        # noqa
 from easyca.ca import CA            # noqa
 from easyca.fmt import print_list   # noqa
+
+
+def str_to_relative_time(date_string):
+    return arrow.get(date_string).humanize()
 
 
 def cmd_ca(ca, args):
@@ -24,7 +29,11 @@ def cmd_cert(ca, args):
     cmd = args.cert
     if cmd == 'list':
         certs = ca.list_certificates()
-        print_list(certs, ['id', 'name', 'status', 'revoked', 'expires'])
+        print_list(
+            certs,
+            keys=['id', 'name', 'status', 'revoked', 'expires'],
+            field_formatters={'expires': str_to_relative_time},
+        )
     elif cmd == 'show':
         print(ca.get_certificate(args.cert_id))
 
@@ -33,7 +42,9 @@ def cmd_req(ca, args):
     cmd = args.req
     if cmd == 'list':
         certs = ca.list_requests()
-        print_list(certs)
+        print_list(
+            certs,
+            field_formatters={'last_modified': str_to_relative_time})
     elif cmd == 'show':
         print(ca.get_request(args.req_id))
 

@@ -50,7 +50,7 @@ def header_formatter_capwords(header):
     return string.capwords(header.replace("_", " ").format(string.capwords))
 
 
-def print_list(l, keys=None, header_formatter=None):
+def print_list(l, keys=None, header_formatter=None, field_formatters=None):
     """Output a list of dicts with headers.
 
     By default keys are formatted alphabetically and a default header formatter
@@ -59,6 +59,13 @@ def print_list(l, keys=None, header_formatter=None):
     :param keys: provide your own key oder
     :param header_formatter: set if you want another custom for the headers
     """
+    def get_formatter(key):
+        if field_formatters:
+            f = field_formatters.get(key)
+            if f:
+                return f
+        return str
+
     if len(l) == 0:
         print("(empty)")
         return
@@ -84,7 +91,8 @@ def print_list(l, keys=None, header_formatter=None):
         safe_item = dict(item_tpl.items())
         for key in keys:
             if item.get(key) is not None:
-                as_str = str(item[key])
+                fmt = get_formatter(key)
+                as_str = fmt(item[key])
                 w = widths[key]
                 if len(as_str) > w and w > 1:
                     as_str = as_str[:w - 1] + u"\u2026"
