@@ -3,11 +3,11 @@
 
 import json
 import logging
-import pytz
 import re
 
-
 from dateutil import parser as dateparser
+from dateutil.tz import tzutc as TZUTC
+
 from .helpers import execute_cmd
 
 EXT_PREFIX = "X509v3 "
@@ -15,6 +15,9 @@ EXT_PREFIX = "X509v3 "
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+
+
+tzutc = TZUTC()
 
 
 def parse_extensions_output(text):
@@ -180,8 +183,9 @@ def extract_san_from_req(path=None, text=None, openssl_path=None):
 
 
 def transform_datestring(datestr):
+    # Arrow has poor date parsing, so rely in dateutil for this
     return dateparser.parse(
-        datestr).astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        datestr).astimezone(tzutc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 def transform_distinguished_name(name):

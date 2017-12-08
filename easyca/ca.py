@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-import datetime
 import glob
 import logging
 import os
 import tempfile
 
-from dateutil.parser import parse as parse_date
-
-import pytz
+import arrow
 
 from . import parser
 from .core import make_san_section
@@ -26,16 +23,14 @@ ISODATE_TPL = '%Y-%m-%dT%H:%M:%SZ'
 
 def parse_cert_index_date(date_str):
     if len(date_str) == 13 and date_str[12] == 'Z':
-        dt = parse_date('20' + date_str)
+        dt = arrow.get(date_str, 'YYMMDDHHmmssz')
         return dt.strftime(ISODATE_TPL)
     else:
         return date_str
 
 
 def epoch_to_date(epoch):
-    return datetime.datetime.utcfromtimestamp(
-        epoch
-    ).replace(tzinfo=pytz.utc).strftime(ISODATE_TPL)
+    return arrow.get(epoch).strftime(ISODATE_TPL)
 
 
 class CA(object):
