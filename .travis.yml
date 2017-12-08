@@ -11,6 +11,6 @@ script:
   # Show openssl version
   - openssl version
   # Run tests
-  - python setup.py test
+  - make test
 notifications:
   email: false
