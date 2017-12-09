@@ -315,7 +315,7 @@ the arguments dn={"cn": "(some name here)"} set.
             db_settings = self._get_db_settings()
             return {
                 "initialized": True,
-                "easy_version": self._read_ca_version(),
+                "easyca_api_version": self._read_ca_version(),
                 "rootca": rootca,
                 "db_settings": db_settings,
             }
