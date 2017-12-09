@@ -48,7 +48,25 @@ def get_col_widths(l):
 
 
 def header_formatter_capwords(header):
-    return string.capwords(header.replace("_", " "))
+    return string.capwords(camel_case_to_underscored(header).replace("_", " "))
+
+
+def camel_case_to_underscored(text):
+    ret = []
+    last_was_upper = text[0].isupper()
+    first_letter = True
+    for l in text:
+        if not l.isalpha():
+            ret.append(l)
+            continue
+        if l.isupper() and not first_letter and not last_was_upper:
+            ret.append('_' + l)
+        else:
+            ret.append(l)
+        first_letter = False
+        last_was_upper = l.isupper()
+
+    return "".join(ret).lower()
 
 
 def print_dict(d, level=0):
@@ -133,3 +151,14 @@ def print_list(l, keys=None, header_formatter=None, field_formatters=None):
 
                 safe_item[key] = as_str
         print(tpl.format(**safe_item))
+
+if __name__ == "__main__":
+    for word in [
+            "helloWorld",
+            "HelloWorld",
+            "iDontKnow",
+            "showMeYourID",
+            "doYouHaveADD"
+    ]:
+        underscored = camel_case_to_underscored(word)
+        print("{} -> {}".format(word, underscored))
