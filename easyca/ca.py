@@ -21,6 +21,22 @@ log = logging.getLogger(__name__)
 ISODATE_TPL = '%Y-%m-%dT%H:%M:%SZ'
 
 
+class DuplicateRequestError(Exception):
+    pass
+
+
+def get_exception_from_openssl_output(text):
+    for line in [l.strip() for l in text.splitlines()]:
+        if line.endswith('Expecting: CERTIFICATE REQUEST'):
+            return ValueError('Not a certificate request')
+        if line == 'TXT_DB error number 2':
+            return DuplicateRequestError(
+                'A valid certificate with the same DISTINGUISHED NAME '
+                'already exists')
+
+    return None
+
+
 def parse_cert_index_date(date_str):
     if len(date_str) == 13 and date_str[12] == 'Z':
         dt = arrow.get(date_str, 'YYMMDDHHmmssz')
@@ -110,6 +126,7 @@ emailAddress            = optional
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer:always
 basicConstraints = CA:true
+# crlDistributionPoints = URI:http://example.com/root.crl
 {san}
 """
 
@@ -293,6 +310,27 @@ the arguments dn={"cn": "(some name here)"} set.
                 "instructions": self._INIT_CA_INSTRUCTIONS
             }
 
+    def updatedb(self):
+        """Updates the database index to purge expired certificates.
+        """
+        config_path = os.path.join(self._ca_path, 'openssl.conf')
+        cmd = [
+            self._openssl_path,
+            'ca',
+            '-config',
+            config_path,
+            '-updatedb'
+        ]
+        success, message = execute_cmd(cmd)
+        # revoke certificate
+        # - openssl ca -config ./openssl.conf -revoke certsdb/XXX.pem
+        # create crls
+        # - openssl ca -config ./openssl.conf -gencrl -out crl/cacert.crl
+        return {
+            "success": success,
+            "message": message
+        }
+
     def list_requests(self):
         """Get a list of Certificate Signing Requests.
 
@@ -399,6 +437,10 @@ the arguments dn={"cn": "(some name here)"} set.
     def _get_cert_path(self, serial=None):
         return os.path.join(self._ca_path, "certsdb", serial + ".pem")
 
+    def get_request_name_from_path(self, path):
+        return parser.get_request_name(
+            path=path, openssl_path=self._openssl_path)
+
     def sign_request(self, csr=None, days=90):
         """Sign a Certificate Signing Request.
         This function carries over Subject Alternative Name entries from the
@@ -406,9 +448,12 @@ the arguments dn={"cn": "(some name here)"} set.
 
         :param csr: a string with the CSR in PEM format
         :param days: how many days in the future the certificate will be valid
-        :returns: a dict with the members *success* and *message* always set
+        :raise ValueError: when the input is not a certificate request
+        :return: a dict with the members *success* and *message* always set
         """
         ca_path = self._ca_path
+        if csr is None:
+            raise ValueError("csr cannot be None")
         try:
             _, ext_conf_path = tempfile.mkstemp(suffix='.conf')
             _, csr_path = tempfile.mkstemp(suffix='.csr')
@@ -484,10 +529,10 @@ the arguments dn={"cn": "(some name here)"} set.
                 log.warning("Signing failed: cmd: {}".format(cmd))
                 log.warning("Error:\n{}".format(message))
                 log.debug("conf\n----\n{}".format(conf))
-                return {
-                    "success": False,
-                    "message": message
-                }
+                e = get_exception_from_openssl_output(message)
+                if e:
+                    raise e
+                raise Exception("Unknown error when signing request")
         finally:
             os.unlink(csr_path)
             os.unlink(ext_conf_path)

@@ -1,17 +1,41 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
+import logging
 import os
 import sys
+
+import arrow
+
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import arrow                        # noqa
-from easyca.ca import CA            # noqa
-from easyca.fmt import (
-    print_list,
-    print_dict,
+from easyca.ca import (             # noqa
+    CA,                             # noqa
+    DuplicateRequestError           # noqa
 )
-import json
+from easyca.fmt import (            # noqa
+    print_dict,                     # noqa
+    print_list,                     # noqa
+)
+
+CMD_NAME = 'ca'
+
+
+DEBUG = True
+
+logging.getLogger().setLevel(logging.DEBUG if DEBUG else logging.CRITICAL)
+
+DN_MAPPING = dict(
+    c=['country'],
+    st=['state', 'province'],
+    l=['locality'],
+    o=['org_name'],
+    u=['org_unit'],
+    cn=['common_name'],
+    email=['email_address']
+)
+
+
+FileReadErrors = (FileNotFoundError, IsADirectoryError, PermissionError)
 
 
 def str_to_relative_time(date_string):
@@ -25,15 +49,32 @@ def error_exit(message):
     sys.exit(1)
 
 
+def build_distinguished_name(args):
+    dn = {}
+    for key, names in DN_MAPPING.items():
+        for name in names:
+            if hasattr(args, name):
+                value = getattr(args, name)
+                if value is not None:
+                    dn[key] = value
+    print(dn)
+    return dn
+
+
 def cmd_ca(ca, args):
     cmd = args.ca
     if cmd == 'show':
         print_dict(ca.get_info())
     elif cmd == "init":
-        ret = ca.initialize(dn=dict(cn=args.common_name))
+        dn = build_distinguished_name(args)
+        ret = ca.initialize(dn)
         print_dict(ret)
     else:
         raise Exception("Subcommand '{}'' not implemented yet!".format(cmd))
+
+
+def cmd_updatedb(ca):
+    ca.updatedb()
 
 
 def cmd_cert(ca, args):
@@ -85,9 +126,39 @@ def cmd_req(ca, args):
             error_exit("Request with id '{}' not found".format(args.req_id))
         print_dict(req)
     elif cmd == 'sign':
-        with open(args.req_path) as f:
-            csr = f.read()
-        ca.sign_request(csr)
+        try:
+            with open(args.req_path) as f:
+                csr = f.read()
+        except FileReadErrors as e:
+            error_exit("Error trying to read file: {}: {}".format(
+                e.strerror,
+                e.filename,
+            ))
+        try:
+            ca.updatedb()
+        except Exception as e:
+            error_exit(
+                "In preparation for signing a request, "
+                "updatedb operation failed: {}".format(e))
+        try:
+            if args.days:
+                ca.sign_request(csr, days=args.days)
+            else:
+                ca.sign_request(csr)
+        except ValueError as e:
+            error_exit("Failed signing request: {}".format(e))
+        except DuplicateRequestError as e:
+            req_dn = ca.get_request_name_from_path(args.req_path)
+            error_exit(
+                'A valid certificate with the DISTINGUISHED NAME already '
+                'exists in the CA database.\n'
+                'If it\'s expired, run \'{cmd} updatedb\' '
+                'to mark it as expired in the database.\n'
+                'You can also revoke it with '
+                '\'{cmd} cert revoke <request serial>\' '
+                '.\n'
+                'Distinguished Name: {dn}'.format(
+                    cmd=CMD_NAME, dn=req_dn))
 
 
 def add_parser_cert(parent_parser):
@@ -104,8 +175,23 @@ def add_parser_req(parent_parser):
     parser = parent_parser.add_parser('req')
     sub = parser.add_subparsers(dest='req')
     sub.add_parser('list')
-    sub.add_parser('sign').add_argument('req_path', type=str)
-    sub.add_parser('show').add_argument('req_id', type=str)
+    sub_sign = sub.add_parser('sign')
+    sub_sign.add_argument(
+        'req_path',
+        metavar='<request path>',
+        type=str
+    )
+    sub_sign.add_argument(
+        '--days',
+        metavar='<validity in days>',
+        type=int
+    )
+
+    sub.add_parser('show').add_argument(
+        'req_id',
+        metavar='<request id>',
+        type=str,
+    )
     return parser
 
 
@@ -122,6 +208,7 @@ def cmd_main():
         help='Path to use as CA repository. '
              'Can be omitted if env variable CA_PATH is set'
     )
+
     subparsers = parser.add_subparsers(
         help='command',
         dest='cmd')
@@ -131,7 +218,15 @@ def cmd_main():
         'ca',
         description='Initialize or show information about the root CA')
     parser_ca.add_argument('ca', type=str, choices=['init', 'show'])
-    parser_ca.add_argument('--common-name', type=str, default=None)
+    for names in DN_MAPPING.values():
+        dests = ['--' + n.replace('_', '-') for n in names]
+        parser_ca.add_argument(*dests, type=str, default=None)
+#        parser_ca.add_argument('--common-name', type=str, default=None)
+
+    subparsers.add_parser(
+        'updatedb',
+        description='Updates the database index to purge expired certificates',
+    )
 
     # Handle CSR
     parser_req = add_parser_req(subparsers)
@@ -170,11 +265,8 @@ def cmd_main():
             sys.exit(1)
         cmd_req(ca, args)
 
-
-    # Commands
-    # ca [show|init]
-    # req [list|show|sign]
-    # cert [list|show|revoke]
+    if args.cmd == 'updatedb':
+        cmd_updatedb(ca)
 
 
 if __name__ == "__main__":

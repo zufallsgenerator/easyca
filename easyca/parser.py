@@ -98,6 +98,23 @@ def get_x509_extensions(path=None, text=None, openssl_path=None):
 
 
 def get_request_as_json(path=None, text=None, openssl_path=None):
+    success, message = _extract_req(
+        path=path, text=text, openssl_path=openssl_path)
+    if not success:
+        raise Exception(message)
+
+    details = parse_x509_output(message, transformers=FIELD_TRANSFORMERS)
+
+    extensions = get_request_extensions_as_json(
+        path=path, text=text, openssl_path=openssl_path)
+
+    assert('extensions' not in details)
+    details['extensions'] = extensions
+
+    return details
+
+
+def _extract_req(path=None, text=None, openssl_path=None):
     assert(openssl_path)
     if path and "-----" in path:
         raise ValueError("Should probably be text, not path")
@@ -115,18 +132,7 @@ def get_request_as_json(path=None, text=None, openssl_path=None):
     else:
         success, message = execute_cmd(cmd, text)
 
-    if not success:
-        raise Exception(message)
-
-    details = parse_x509_output(message)
-
-    extensions = get_request_extensions_as_json(
-        path=path, text=text, openssl_path=openssl_path)
-
-    assert('extensions' not in details)
-    details['extensions'] = extensions
-
-    return details
+    return success, message
 
 
 def get_request_extensions_as_json(path=None, text=None, openssl_path=None):
@@ -215,15 +221,15 @@ FIELD_TRANSFORMERS = {
 }
 
 
-def transform_x509_field(key, raw_value):
-    transformer = FIELD_TRANSFORMERS.get(key)
+def transform_x509_field(key, raw_value, transformers=None):
+    transformer = transformers.get(key)
     if transformer:
         return transformer(raw_value)
 
     return raw_value
 
 
-def parse_x509_output(text):
+def parse_x509_output(text, transformers=None):
     lines = [l.strip() for l in text.splitlines() if l.strip()]
 
     ret = {}
@@ -235,13 +241,45 @@ def parse_x509_output(text):
         key = line[:idx]
         raw_value = line[idx + 1:].strip()
 
-        value = transform_x509_field(key, raw_value)
+
+        if transformers:
+            value = transform_x509_field(
+                key, raw_value, transformers=transformers)
+        else:
+            value = raw_value
 
         ret[key] = value
     return ret
 
 
 def get_x509_as_json(path=None, text=None, openssl_path=None):
+    success, message = _extract_cert(
+        path=path, text=text, openssl_path=openssl_path)
+    if not success:
+        raise Exception(message)
+
+    details = parse_x509_output(message, transformers=FIELD_TRANSFORMERS)
+
+    extensions = get_x509_extensions(
+        path=path, text=text, openssl_path=openssl_path)
+
+    assert('extensions' not in details)
+    details['extensions'] = extensions
+
+    return details
+
+
+def get_request_name(path=None, text=None, openssl_path=None):
+
+    success, message = _extract_req(
+        path=path, text=text, openssl_path=openssl_path)
+    if not success:
+        raise Exception(message)
+    details = parse_x509_output(message, transformers=None)
+    return details.get('subject')
+
+
+def _extract_cert(path=None, text=None, openssl_path=None):
     assert(openssl_path)
     if path and "-----" in path:
         raise ValueError("Should probably be text, not path")
@@ -263,18 +301,7 @@ def get_x509_as_json(path=None, text=None, openssl_path=None):
     else:
         success, message = execute_cmd(cmd, text)
 
-    if not success:
-        raise Exception(message)
-
-    details = parse_x509_output(message)
-
-    extensions = get_x509_extensions(
-        path=path, text=text, openssl_path=openssl_path)
-
-    assert('extensions' not in details)
-    details['extensions'] = extensions
-
-    return details
+    return success, message
 
 
 def test():
