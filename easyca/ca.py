@@ -271,6 +271,20 @@ the arguments dn={"cn": "(some name here)"} set.
                 self._ca_path, self._DB_VERSION_FILENAME)) as f:
             return int(f.read())
 
+    def _get_db_settings(self):
+        with open(os.path.join(
+                self._ca_path, 'index.txt.attr')) as f:
+            text = f.read()
+
+        ret = {}
+        for line in [l.strip() for l in text.splitlines()]:
+            if "=" in line:
+                idx = line.index('=')
+                key = line[:idx].strip()
+                value = line[idx + 1:].strip()
+                ret[key] = value
+        return ret
+
     @property
     def initialized(self):
         """
@@ -290,18 +304,20 @@ the arguments dn={"cn": "(some name here)"} set.
                 with open(os.path.join(ca_path, 'cacert.pem')) as f:
                     buf = f.read()
 
-                details = parser.get_x509_as_json(
+                rootca = parser.get_x509_as_json(
                     text=buf,
                     openssl_path=self._openssl_path,
                 )
             except Exception as e:
-                details = {
+                rootca = {
                     "error": str(e)
                 }
+            db_settings = self._get_db_settings()
             return {
                 "initialized": True,
-                "version": self._read_ca_version(),
-                "details": details
+                "easy_version": self._read_ca_version(),
+                "rootca": rootca,
+                "db_settings": db_settings,
             }
         except Exception as e:
             return {
