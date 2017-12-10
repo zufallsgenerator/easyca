@@ -38,6 +38,9 @@ DN_MAPPING = dict(
 FileReadErrors = (FileNotFoundError, IsADirectoryError, PermissionError)
 
 
+DEFAULT_COMMON_NAME = "EasyCA Root CA (Self-Signed)"
+
+
 def str_to_relative_time(date_string):
     if date_string:
         return arrow.get(date_string).humanize()
@@ -72,7 +75,7 @@ def cmd_ca(ca, args):
     elif cmd == "init":
         dn = build_distinguished_name(args)
         if not dn.get('cn'):
-            error_exit("Option --common-name <name> is reuqired")
+            dn['cn'] = DEFAULT_COMMON_NAME
         ret = ca.initialize(dn)
         print_dict(ret)
     else:
