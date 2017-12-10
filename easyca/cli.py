@@ -20,7 +20,7 @@ from easyca.fmt import (            # noqa
 CMD_NAME = 'ca'
 
 
-DEBUG = True
+DEBUG = False
 
 logging.getLogger().setLevel(logging.DEBUG if DEBUG else logging.CRITICAL)
 
@@ -68,18 +68,17 @@ def build_distinguished_name(args):
     return dn
 
 
-def cmd_ca(ca, args):
-    cmd = args.ca
-    if cmd == 'show':
-        print_dict(ca.get_info())
-    elif cmd == "init":
-        dn = build_distinguished_name(args)
-        if not dn.get('cn'):
-            dn['cn'] = DEFAULT_COMMON_NAME
-        ret = ca.initialize(dn)
-        print_dict(ret)
-    else:
-        raise Exception("Subcommand '{}'' not implemented yet!".format(cmd))
+def cmd_info(ca, args):
+    print("CA Path: {}".format(ca.ca_path))
+    print_dict(ca.get_info())
+
+
+def cmd_init(ca, args):
+    dn = build_distinguished_name(args)
+    if not dn.get('cn'):
+        dn['cn'] = DEFAULT_COMMON_NAME
+    ret = ca.initialize(dn)
+    print_dict(ret)
 
 
 def cmd_updatedb(ca):
@@ -223,14 +222,15 @@ def cmd_main():
         dest='cmd')
 
     # Certificate Authority
-    parser_ca = subparsers.add_parser(
-        'ca',
-        description='Initialize or show information about the root CA')
-    parser_ca.add_argument('ca', type=str, choices=['init', 'show'])
+    parser_ca_init = subparsers.add_parser(
+        'init',
+        description='Initialize the root CA')
     for key, names in DN_MAPPING.items():
         dests = ['--' + key] + ['--' + n.replace('_', '-') for n in names]
-        parser_ca.add_argument(*dests, type=str, default=None)
-#        parser_ca.add_argument('--common-name', type=str, default=None)
+        parser_ca_init.add_argument(*dests, type=str, default=None)
+    subparsers.add_parser(
+        'info',
+        description='Show information about configuration and the root CA')
 
     subparsers.add_parser(
         'updatedb',
@@ -259,8 +259,11 @@ def cmd_main():
 
     ca = CA(ca_path)
 
-    if args.cmd == 'ca':
-        cmd_ca(ca, args)
+    if args.cmd == 'init':
+        cmd_init(ca, args)
+
+    if args.cmd == 'info':
+        cmd_info(ca, args)
 
     if args.cmd == 'cert':
         if not args.cert:

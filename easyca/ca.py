@@ -73,6 +73,10 @@ class CA(object):
         else:
             self._openssl_path = self._get_openssl_path()
 
+    @property
+    def ca_path(self):
+        return self._ca_path
+
     def _get_openssl_path(self):
         """Get openssl binary in path
 
@@ -250,6 +254,12 @@ the arguments dn={"cn": "(some name here)"} set.
     def _make_ca_structure(self):
         log.info("Createing CA file structure at: '{}'".format(self._ca_path))
         basepath = self._ca_path
+        version_path = os.path.join(
+            basepath,
+            self._DB_VERSION_FILENAME
+        )
+        if os.path.exists(version_path):
+            raise FileExistsError(version_path)
         folder_perms = [
             ('certsdb', 0o750),
             ('certreqs', 0o750),
@@ -262,8 +272,7 @@ the arguments dn={"cn": "(some name here)"} set.
             os.chmod(path, perm)
         with open(os.path.join(basepath, 'index.txt'), 'w+') as f:
             f.write('')
-        with open(os.path.join(basepath,
-                  self._DB_VERSION_FILENAME), 'w+') as f:
+        with open(version_path, 'w+') as f:
             f.write(str(self.DB_VERSION))
 
     def _read_ca_version(self):
