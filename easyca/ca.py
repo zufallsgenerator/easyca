@@ -338,10 +338,6 @@ the arguments dn={"cn": "(some name here)"} set.
             '-updatedb'
         ]
         success, message = execute_cmd(cmd)
-        # revoke certificate
-        # - openssl ca -config ./openssl.conf -revoke certsdb/XXX.pem
-        # create crls
-        # - openssl ca -config ./openssl.conf -gencrl -out crl/cacert.crl
         return {
             "success": success,
             "message": message
@@ -440,6 +436,7 @@ the arguments dn={"cn": "(some name here)"} set.
             '-revoke',
             cert_path
         ]
+        print(cmd)
         success, message = execute_cmd(cmd)
         # revoke certificate
         # - openssl ca -config ./openssl.conf -revoke certsdb/XXX.pem

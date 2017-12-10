@@ -29,7 +29,7 @@ DN_MAPPING = dict(
     st=['state', 'province'],
     l=['locality'],
     o=['org_name'],
-    u=['org_unit'],
+    ou=['org_unit'],
     cn=['common_name'],
     email=['email_address']
 )
@@ -57,7 +57,11 @@ def build_distinguished_name(args):
                 value = getattr(args, name)
                 if value is not None:
                     dn[key] = value
-    print(dn)
+                    continue
+        if hasattr(args, key):
+            value = getattr(args, key)
+            if value is not None:
+                dn[key] = value
     return dn
 
 
@@ -67,6 +71,8 @@ def cmd_ca(ca, args):
         print_dict(ca.get_info())
     elif cmd == "init":
         dn = build_distinguished_name(args)
+        if not dn.get('cn'):
+            error_exit("Option --common-name <name> is reuqired")
         ret = ca.initialize(dn)
         print_dict(ret)
     else:
@@ -218,8 +224,8 @@ def cmd_main():
         'ca',
         description='Initialize or show information about the root CA')
     parser_ca.add_argument('ca', type=str, choices=['init', 'show'])
-    for names in DN_MAPPING.values():
-        dests = ['--' + n.replace('_', '-') for n in names]
+    for key, names in DN_MAPPING.items():
+        dests = ['--' + key] + ['--' + n.replace('_', '-') for n in names]
         parser_ca.add_argument(*dests, type=str, default=None)
 #        parser_ca.add_argument('--common-name', type=str, default=None)
 
