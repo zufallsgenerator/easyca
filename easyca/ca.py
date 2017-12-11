@@ -210,8 +210,8 @@ the arguments dn={"cn": "(some name here)"} set.
             dn=dn_str,
         )
 
-        with open(config_path, 'w+') as f:
-            f.write(conf)
+        with open(config_path, 'wb+') as f:
+            f.write(conf.encode('utf-8'))
 
         cmd = [
             self._openssl_path,

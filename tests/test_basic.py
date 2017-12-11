@@ -199,8 +199,8 @@ class Test(unittest.TestCase):
         ]))
 
     def test_load_req(self):
-        with tempfile.NamedTemporaryFile(suffix='.csr', mode='w+') as f:
-            f.write(CSR_SAN)
+        with tempfile.NamedTemporaryFile(suffix='.csr', mode='wb+') as f:
+            f.write(CSR_SAN.encode('utf-8'))
             f.flush()
             san = parser.extract_san_from_req(
                 path=f.name,
