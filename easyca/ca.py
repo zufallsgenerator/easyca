@@ -2,6 +2,7 @@
 import glob
 import logging
 import os
+import re
 import tempfile
 
 import arrow
@@ -79,6 +80,8 @@ class CA(object):
         else:
             self._openssl_path = self._get_openssl_path()
 
+        self.openssl_version = self._get_openssl_version(self._openssl_path)
+
     @property
     def ca_path(self):
         return self._ca_path
@@ -91,6 +94,18 @@ class CA(object):
         with os.popen('which openssl') as f:
             return f.read().strip()
 
+    def _get_openssl_version(self, openssl_path):
+        success, message = execute_cmd([openssl_path, 'version'])
+        if success:
+            m = re.search('OpenSSL ([0-9]+)\.([0-9]+)\.([0-9]+)', message)
+            if m:
+                return tuple([int(n) for n in m.groups()])
+            else:
+                log.error("Failed extracting openssl version from "
+                          "string: '{}'".format(message))
+        log.error("Failed getting openssl version: {}".format(message))
+        return None
+
     DB_VERSION = 1
     _DB_VERSION_FILENAME = "db_version.txt"
 
@@ -99,6 +114,7 @@ class CA(object):
 
     _CA_CONF = """
 [ req ]
+utf8 = yes
 prompt = no
 distinguished_name = req_distinguished_name
 req_extension      = v3_req
@@ -314,18 +330,13 @@ the arguments dn={"cn": "(some name here)"} set.
         """
         ca_path = self._ca_path
         try:
-            try:
-                with open(os.path.join(ca_path, 'cacert.pem')) as f:
-                    buf = f.read()
+            with open(os.path.join(ca_path, 'cacert.pem')) as f:
+                buf = f.read()
 
-                rootca = parser.get_x509_as_json(
-                    text=buf,
-                    openssl_path=self._openssl_path,
-                )
-            except Exception as e:
-                rootca = {
-                    "error": str(e)
-                }
+            rootca = parser.get_x509_as_json(
+                text=buf,
+                openssl_path=self._openssl_path,
+            )
             db_settings = self._get_db_settings()
             return {
                 "initialized": True,
@@ -333,6 +344,8 @@ the arguments dn={"cn": "(some name here)"} set.
                 "rootca": rootca,
                 "db_settings": db_settings,
             }
+        except UnicodeDecodeError:
+            raise
         except Exception as e:
             return {
                 "initialized": False,

@@ -125,10 +125,11 @@ class Test(unittest.TestCase):
         """Create a self-signed certificate"""
         # Test with rsa:512 for speed purposes, the minimum key length
         now = get_utcnow_round()
-        CN = "Acme Corp"
+        CN = "example.com"
+        O = "Acme Corp"
         DAYS = 42
         res = core.create_self_signed(
-            dn=dict(cn=CN),
+            dn=dict(cn=CN, o=O),
             newkey='rsa:512',
             days=DAYS,
         )
@@ -144,6 +145,9 @@ class Test(unittest.TestCase):
         # Verify common name
         self.assertEqual(res_parsed['subject']['CN'], CN)
         self.assertEqual(res_parsed['issuer']['CN'], CN)
+        # And organization
+        self.assertEqual(res_parsed['subject']['O'], O)
+        self.assertEqual(res_parsed['issuer']['O'], O)
 
         # Verify time delta
         not_before = du_parser.parse(res_parsed.get('notBefore'))
@@ -217,11 +221,6 @@ class Test(unittest.TestCase):
             text=SIGNED_SAN, openssl_path=self._openssl_path)
         print(json.dumps(res, indent=4))
 
-    def test_decode_utf8(self):
-        s = "\\xC3\\x96sterg\\xC3\\xB6tlands L\\xC3\\xA4n"
-        ret = parser.decode_hex_utf8(s)
-        print("len expected:{}".format(len("Östergötlands Län")))
-        self.assertEqual(ret, "Östergötlands Län")
 
 
 

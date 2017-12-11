@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # Get info only using openssl, no libraries
 
-import json
 import logging
 import re
 
@@ -195,6 +194,18 @@ def transform_datestring(datestr):
 
 
 def transform_distinguished_name(name):
+    # openssl 1.1.0 outputs subject=CN = example.com, O = Acme Corp
+    # openssl 1.0.2 outputs subject= /O=Acme Corp/CN=example.com
+    if re.match(r'\s*/', name):
+        return _transform_distinguished_slash_prefix(name)
+    if re.match(r'\s*[A-Z]+', name):
+        return _transform_distinguished_comma_delim(name)
+
+    raise ValueError("No recognized format: '{}'".format(name))
+
+
+def _transform_distinguished_slash_prefix(name):
+    # openssl 1.0.2 outputs subject= /O=Acme Corp/CN=example.com
     ret = {}
     rest = name
     while rest:
@@ -204,6 +215,21 @@ def transform_distinguished_name(name):
         key, value = m.groups()
         ret[key] = decode_hex_utf8(value)
         rest = rest[m.span()[1]:]
+
+    return ret
+
+
+def _transform_distinguished_comma_delim(name):
+    # openssl 1.1.0 outputs subject=CN = example.com, O = Acme Corp
+    ret = {}
+
+    parts = name.split(",")
+
+    for part in parts:
+        if "=" in part:
+            idx = part.index("=")
+        key, value = part[:idx].strip(), part[idx + 1:].strip()
+        ret[key] = decode_hex_utf8(value)
 
     return ret
 
@@ -304,21 +330,37 @@ def _extract_cert(path=None, text=None, openssl_path=None):
 
 
 def decode_hex_utf8(he):
+    """Decode UTF-escaped strings in either
+        \\C3\\96
+        or
+        \\xC3\\x96
+        format
+    """
+
     b = bytearray(len(he))
     i = 0
 
     s = he
     while len(s) > 0:
-        m = re.match(r'\\x([a-zA-Z0-9]{2,2})', s)
+        m = None
+        if s.startswith('\\'):
+            if s.startswith('\\x'):
+                m = re.match(r'\\x([a-zA-Z0-9]{2,2})', s)
+            else:
+                m = re.match(r'\\([a-zA-Z0-9]{2,2})', s)
         if m:
             char_code = int(m.groups()[0], 16)
             b[i] = char_code
-            s = s[4:]
+            s = s[m.span()[1]:]
         else:
             b[i] = ord(s[0])
             s = s[1:]
         i += 1
-    ret = b.decode('utf-8')
+    try:
+        ret = b.decode('utf-8')
+    except UnicodeDecodeError:
+        log.warning("Couldn't decode hex utf-8 string: '{}'".format(he))
+        return he
     if '\x00' in ret:
         return ret[:ret.index('\x00')]
     return ret

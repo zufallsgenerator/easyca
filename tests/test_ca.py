@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import datetime
 import os
 import shutil
@@ -148,9 +149,19 @@ class Test(unittest.TestCase):
         )
         self.assertTrue(res_ca.get('success'))
         info = ca.get_info()
-        import json
-        print(json.dumps(info))
-#        self.assertEqual(info['rootca']['subject']['ST'], 'Östergötlands Län')
+
+        st = info['rootca']['subject']['ST']
+
+        version = ca.openssl_version
+
+        # utf8 handling only seems to work from 1.0.2
+        # 1.1.0 starts outputting it differently
+
+        if version >= (1, 0, 2):
+            self.assertEqual(st, 'Östergötlands Län')
+        else:
+            self.assertEqual(st.lower(),
+                             '\\xd6sterg\\xf6tlands l\\xe4n')
 
     def test_create_ca_and_sign_cert(self):
         """Create a CA and sign certificates with it"""
