@@ -217,6 +217,13 @@ class Test(unittest.TestCase):
             text=SIGNED_SAN, openssl_path=self._openssl_path)
         print(json.dumps(res, indent=4))
 
+    def test_decode_utf8(self):
+        s = "\\xC3\\x96sterg\\xC3\\xB6tlands L\\xC3\\xA4n"
+        ret = parser.decode_hex_utf8(s)
+        print("len expected:{}".format(len("Östergötlands Län")))
+        self.assertEqual(ret, "Östergötlands Län")
+
+
 
 if __name__ == "__main__":
     unittest.main()

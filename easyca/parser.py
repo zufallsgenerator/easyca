@@ -202,7 +202,7 @@ def transform_distinguished_name(name):
         if not m:
             return ret
         key, value = m.groups()
-        ret[key] = value
+        ret[key] = decode_hex_utf8(value)
         rest = rest[m.span()[1]:]
 
     return ret
@@ -240,7 +240,6 @@ def parse_x509_output(text, transformers=None):
             continue
         key = line[:idx]
         raw_value = line[idx + 1:].strip()
-
 
         if transformers:
             value = transform_x509_field(
@@ -304,24 +303,26 @@ def _extract_cert(path=None, text=None, openssl_path=None):
     return success, message
 
 
-def test():
-    print(make_camel_case("hello you are my world"))
+def decode_hex_utf8(he):
+    b = bytearray(len(he))
+    i = 0
 
-    extensions = parse_extensions_output("""X509v3 extensions:
-            X509v3 Basic Constraints:
-                CA:FALSE
-            X509v3 Subject Key Identifier:
-                E9:DA:74:31:41:32:A8:21:DB:24:07:BA:CC:26:46:61:D2:C1:96:02
-            X509v3 Authority Key Identifier:
-                keyid:6A:C4:A7:91:B5:A0:CF:01:86:A3:83:72:55:93:6C:83:3D:C7:FA:87
+    s = he
+    while len(s) > 0:
+        m = re.match(r'\\x([a-zA-Z0-9]{2,2})', s)
+        if m:
+            char_code = int(m.groups()[0], 16)
+            b[i] = char_code
+            s = s[4:]
+        else:
+            b[i] = ord(s[0])
+            s = s[1:]
+        i += 1
+    ret = b.decode('utf-8')
+    if '\x00' in ret:
+        return ret[:ret.index('\x00')]
+    return ret
 
-            X509v3 Subject Alternative Name:
-                DNS:acme.org, DNS:www.acme.org, DNS:cdn1.far-away.com, IP Address:192.168.56.100""")  # noqa
-
-    print(json.dumps(extensions, indent=4))
 
 if __name__ == "__main__":
-    import sys
-    ret = get_request_extensions_as_json(sys.argv[1])
-
-    print(json.dumps(ret, indent=4))
+    pass

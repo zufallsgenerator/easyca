@@ -10,7 +10,8 @@ sys.path.insert(
 
 from easyca.ca import (             # noqa
     CA,                             # noqa
-    DuplicateRequestError           # noqa
+    DuplicateRequestError,          # noqa
+    OpenSSLError,                   # noqa
 )
 from easyca.fmt import (            # noqa
     print_dict,                     # noqa
@@ -77,7 +78,14 @@ def cmd_init(ca, args):
     dn = build_distinguished_name(args)
     if not dn.get('cn'):
         dn['cn'] = DEFAULT_COMMON_NAME
-    ret = ca.initialize(dn)
+    try:
+        ret = ca.initialize(dn)
+    except FileExistsError as e:
+        error_exit('A CA is already (partially) initialized here. '
+                   'File exists: {}'.format(e))
+    except OpenSSLError as e:
+        error_exit('A call to openssl failed while initializing: {}'.format(
+            e.text))
     print_dict(ret)
 
 

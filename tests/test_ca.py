@@ -135,6 +135,21 @@ class Test(unittest.TestCase):
             "URI:http://www.example.com"
         ]))
 
+    def test_create_ca_utf8(self):
+        ca_path = self.create_tempdir()
+        ca = CA(ca_path=ca_path)
+        res_ca = ca.initialize(
+            dn=dict(
+                cn='example.com',
+                c='se',
+                st='Östergötlands Län',
+            ),
+            newkey='rsa:512',
+        )
+        self.assertTrue(res_ca.get('success'))
+        info = ca.get_info()
+        self.assertEqual(info['rootca']['subject']['ST'], 'Östergötlands Län')
+
     def test_create_ca_and_sign_cert(self):
         """Create a CA and sign certificates with it"""
         ca_path = self.create_tempdir()

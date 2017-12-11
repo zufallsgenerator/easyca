@@ -24,6 +24,15 @@ fi
 echo "### Should Init CA"
 $CMD --ca-path=$TEMPDIR init --common-name="example.com" > /dev/null
 EXITCODES+=($?)
+ret=$($CMD --ca-path=$TEMPDIR info | grep "example.com")
+if [[ "${ret}" == "" ]]; then
+	echo "*** Could not find common-name provided"
+	EXITCODE+=(0)
+else
+	EXITCODE+=(0)
+fi
+
+
 
 
 rm -rf $TEMPDIR

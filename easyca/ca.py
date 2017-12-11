@@ -25,6 +25,12 @@ class DuplicateRequestError(Exception):
     pass
 
 
+class OpenSSLError(Exception):
+    def __init__(self, message=None, text=None):
+        self.text = text
+        return super().__init__(message)
+
+
 def get_exception_from_openssl_output(text):
     for line in [l.strip() for l in text.splitlines()]:
         if line.endswith('Expecting: CERTIFICATE REQUEST'):
@@ -34,7 +40,7 @@ def get_exception_from_openssl_output(text):
                 'A valid certificate with the same DISTINGUISHED NAME '
                 'already exists')
 
-    return None
+    return OpenSSLError('Unknown openssl error', text=text)
 
 
 def parse_cert_index_date(date_str):
@@ -163,12 +169,15 @@ the arguments dn={"cn": "(some name here)"} set.
         :param alt_names: a list of of Subject Alternative Names
         :param days: how many days in the future the CA will be valid
         :param newkey: key specification like 'rsa:2048'
+        :raise ValueError: missing value needed
+        :raise FileExistsErrror: a CA is alreay initialized at this location
+        :raise OpenSSLError: an error occurred calling openssl
         :returns: a dict with the members *success* and *message* always set
         """
         ca_path = self._ca_path
 
         if dn is None:
-            raise Exception("missing argument dn")
+            raise ValueError("missing argument dn")
 
         dn_str = make_dn_section(dn)
         log.debug("dn_str is: {}".format(dn_str))
@@ -193,6 +202,7 @@ the arguments dn={"cn": "(some name here)"} set.
             'req',
             '-nodes',
             '-new',
+            '-utf8',
             '-newkey',
             newkey,
             '-keyout',
@@ -204,11 +214,7 @@ the arguments dn={"cn": "(some name here)"} set.
         ]
         success, message = execute_cmd(cmd)
         if not success:
-            return {
-                "success": success,
-                "message": message,
-                "conf": conf
-            }
+            raise get_exception_from_openssl_output(message)
 
         cmd = [
             self._openssl_path,
@@ -236,20 +242,19 @@ the arguments dn={"cn": "(some name here)"} set.
         log.debug("{}".format(" ".join(cmd)))
         success, message = execute_cmd(cmd)
         if not success:
-            raise Exception(message)
+            raise get_exception_from_openssl_output(message)
 
-        if success:
-            with open(key_path) as key_file:
-                key = key_file.read()
-            with open(cert_path) as cert_file:
-                cert = cert_file.read()
-            return {
-                "success": success,
-                "message": message,
-                "cert": cert,
-                "key": key,
-                "conf": conf,
-            }
+        with open(key_path) as key_file:
+            key = key_file.read()
+        with open(cert_path) as cert_file:
+            cert = cert_file.read()
+        return {
+            "success": success,
+            "message": message,
+            "cert": cert,
+            "key": key,
+            "conf": conf,
+        }
 
     def _make_ca_structure(self):
         log.info("Createing CA file structure at: '{}'".format(self._ca_path))
