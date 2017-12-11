@@ -18,7 +18,7 @@ This package also supports using Subject Alternative Names for DNS and
 IP addresses, as the Common Name (CN) attribute of the subject will be
 deprecated at some point.
 
-Under the hood the openssl cli and pyOpenSSL are used.
+Under the hood the openssl cli is used.
 
 Python 3.4 and above supported.
 
@@ -44,7 +44,7 @@ newkey='rsa:2048')**
    :Returns:
       a dict with the members *success* and *message* always set
 
-**class easyca.CA(ca_path=None)**
+**class easyca.CA(ca_path=None, openssl_path=None)**
 
    Bases: ``object``
 
@@ -52,13 +52,27 @@ newkey='rsa:2048')**
    flat-file database.
 
    :Parameters:
-      **ca_path** – path where to create the required folder structure
+      * **ca_path** – path where to create the required folder
+        structure
+
+      * **openssl_path** – path of openssl binary to use
 
    ``DB_VERSION = 1``
+
+   ``ca_path``
 
    **get_certificate(serial=None)**
 
       Get details of a signed certificate
+
+      :Parameters:
+         **serial** – serial number of request
+
+      :Raises:
+         **LookupError** – certificate with serial not found
+
+      :Returns:
+         a dict with information
 
    **get_info()**
 
@@ -77,8 +91,13 @@ newkey='rsa:2048')**
       :Parameters:
          **serial** – serial number of request
 
+      :Raises:
+         **LookupError** – request with serial not found
+
       :Returns:
          a dict with information
+
+   **get_request_name_from_path(path)**
 
    **initialize(dn=None, alt_names=None, days=90, newkey='rsa:2048')**
 
@@ -94,6 +113,14 @@ newkey='rsa:2048')**
          * **days** – how many days in the future the CA will be valid
 
          * **newkey** – key specification like ‘rsa:2048’
+
+      :Raises:
+         * **ValueError** – missing value needed
+
+         * **FileExistsErrror** – a CA is alreay initialized at this
+           location
+
+         * **OpenSSLError** – an error occurred calling openssl
 
       :Returns:
          a dict with the members *success* and *message* always set
@@ -127,8 +154,15 @@ newkey='rsa:2048')**
          * **days** – how many days in the future the certificate will
            be valid
 
+      :Raises:
+         **ValueError** – when the input is not a certificate request
+
       :Returns:
          a dict with the members *success* and *message* always set
+
+   **updatedb()**
+
+      Updates the database index to purge expired certificates.
 
 **class easyca.DistinguishedName(c=None, cn=None, email=None, l=None,
 o=None, ou=None, st=None)**
