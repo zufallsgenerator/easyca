@@ -42,6 +42,15 @@ FileReadErrors = (FileNotFoundError, IsADirectoryError, PermissionError)
 DEFAULT_COMMON_NAME = "EasyCA Root CA (Self-Signed)"
 
 
+def distinguished_name_formatter(dn):
+    ret = []
+    for key in ['CN', 'O', 'OU', 'L', 'ST', 'CN', 'EMAIL_ADDRESS']:
+        if key in dn.keys():
+            value = dn[key]
+            ret.append('/{}={}'.format(key.upper(), value))
+    return "".join(ret)
+
+
 def str_to_relative_time(date_string):
     if date_string:
         return arrow.get(date_string).humanize()
@@ -113,6 +122,7 @@ def cmd_cert(ca, args):
             field_formatters={
                 'expires': str_to_relative_time,
                 'revoked': str_to_relative_time,
+                'name': distinguished_name_formatter,
             },
         )
     elif cmd == 'show':

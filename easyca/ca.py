@@ -413,7 +413,7 @@ the arguments dn={"cn": "(some name here)"} set.
                     revoked_reason=revoked_reason,
                     id=serial,
                     filename=None if filename == 'unknown' else filename,
-                    name=name,
+                    name=parser.transform_distinguished_name(name),
                 ))
             except Exception as e:
                 logging.error("CA.list_certificates -> {}".format(e))
