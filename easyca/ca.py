@@ -81,6 +81,8 @@ class CA(object):
             self._openssl_path = self._get_openssl_path()
 
         self.openssl_version = self._get_openssl_version(self._openssl_path)
+        log.debug("openssl_path: {}, openssl_version: {}".format(
+            self._openssl_path, self.openssl_version))
 
     @property
     def ca_path(self):
@@ -293,8 +295,8 @@ the arguments dn={"cn": "(some name here)"} set.
             os.chmod(path, perm)
         with open(os.path.join(basepath, 'index.txt'), 'w+') as f:
             f.write('')
-        with open(version_path, 'w+') as f:
-            f.write(str(self.DB_VERSION))
+        with open(version_path, 'wb+') as f:
+            f.write(str(self.DB_VERSION).encode('utf-8'))
 
     def _read_ca_version(self):
         with open(os.path.join(
@@ -519,11 +521,11 @@ the arguments dn={"cn": "(some name here)"} set.
                 csr_san=make_san_section(alt_names)
             )
 
-            with open(ext_conf_path, 'w+') as f:
-                f.write(conf)
+            with open(ext_conf_path, 'wb+') as f:
+                f.write(conf.encode('utf-8'))
 
-            with open(csr_path, 'w+') as f:
-                f.write(csr)
+            with open(csr_path, 'wb+') as f:
+                f.write(csr.encode('utf-8'))
 
             cmd = [
                 self._openssl_path,
@@ -554,8 +556,8 @@ the arguments dn={"cn": "(some name here)"} set.
                     csr_db_path = os.path.join(
                         ca_path, 'certreqs', '{:X}.csr'.format(serial)
                     )
-                    with(open(csr_db_path, 'w+')) as f:
-                        f.write(csr)
+                    with(open(csr_db_path, 'wb+')) as f:
+                        f.write(csr.encode('utf-8'))
                     hex_serial = "{:X}".format(serial)
                 else:
                     hex_serial = None
