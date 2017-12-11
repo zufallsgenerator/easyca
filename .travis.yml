@@ -17,5 +17,7 @@ script:
   # Run tests with openssl 1.1.0
   - echo "Running tests with openssl 1.1.0"
   - source ./ci/openssl1.1.0.bash && make test
+  # Package
+  - python3 setup.py bdist_egg
 notifications:
   email: false
