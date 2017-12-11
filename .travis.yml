@@ -11,8 +11,11 @@ install:
 # command to run tests
 script:
   # Run tests
+  - echo "Running tests with"
+  - openssl version
   - make test
   # Run tests with openssl 1.1.0
+  - echo "Running tests with openssl 1.1.0"
   - source ./openssl1.1.0.bash && make test
 notifications:
   email: false
