@@ -11,7 +11,7 @@ script:
   # Show openssl version
   - openssl version
   # Run tests
-  - python tests/test_ca.pyt Test.test_create_ca_utf8
+  - python tests/test_ca.py Test.test_create_ca_utf8
   - make test
 notifications:
   email: false
