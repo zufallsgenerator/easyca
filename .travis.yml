@@ -3,9 +3,13 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
+env:
+  UPGRADE_OPENSSL=false
+  UPGRADE_OPENSSL=true
 # command to install dependencies
 install:
   - pip install -r requirements.txt
+  - ./maybe_upgrade_openssl.bash
 # command to run tests
 script:
   # Show openssl version
