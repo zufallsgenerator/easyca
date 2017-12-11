@@ -7,7 +7,7 @@ python:
   # command to install dependencies
 install:
   - pip install -r requirements.txt
-  - ./download_openssl.bash
+  - ./ci/download_openssl.bash
 # command to run tests
 script:
   # Run tests
@@ -16,6 +16,6 @@ script:
   - make test
   # Run tests with openssl 1.1.0
   - echo "Running tests with openssl 1.1.0"
-  - source ./openssl1.1.0.bash && make test
+  - source ./ci/openssl1.1.0.bash && make test
 notifications:
   email: false
