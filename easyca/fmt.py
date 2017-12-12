@@ -4,6 +4,11 @@ import math
 import string
 
 
+C_RED = "\x1b[31m"
+C_YELLOW = "\x1b[33m"
+C_RESET = "\x1b[0m"
+
+
 def get_term_width():
     # TODO: caching?
     rows, columns = os.popen('stty size', 'r').read().split()

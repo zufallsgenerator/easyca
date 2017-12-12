@@ -13,35 +13,15 @@ from .distinguished_name import (
     DistinguishedName,
     make_dn_section,
 )
+from .exceptions import get_exception_from_openssl_output
 from .helpers import execute_cmd
+
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 
 ISODATE_TPL = '%Y-%m-%dT%H:%M:%SZ'
-
-
-class DuplicateRequestError(Exception):
-    pass
-
-
-class OpenSSLError(Exception):
-    def __init__(self, message=None, text=None):
-        self.text = text
-        return super().__init__(message)
-
-
-def get_exception_from_openssl_output(text):
-    for line in [l.strip() for l in text.splitlines()]:
-        if line.endswith('Expecting: CERTIFICATE REQUEST'):
-            return ValueError('Not a certificate request')
-        if line == 'TXT_DB error number 2':
-            return DuplicateRequestError(
-                'A valid certificate with the same DISTINGUISHED NAME '
-                'already exists')
-
-    return OpenSSLError('Unknown openssl error', text=text)
 
 
 def parse_cert_index_date(date_str):
@@ -62,6 +42,19 @@ def parse_revoked_str(revoked_str):
 
 def epoch_to_date(epoch):
     return arrow.get(epoch).strftime(ISODATE_TPL)
+
+
+class CAPaths(object):
+    def __init__(self, basepath):
+        self._basepath = basepath
+        self.certs = os.path.join(basepath, 'certs')
+        self.reqs = os.path.join(basepath, 'reqs')
+        self.private = os.path.join(basepath, 'private')
+        self.config = os.path.join(basepath, 'openssl.conf')
+        self.key = os.path.join(self.private, 'cakey.pem')
+        self.root_ca = os.path.join(basepath, 'cacert.pem')
+        self.root_csr = os.path.join(basepath, 'careq.pem')
+        self.crl = os.path.join(basepath, 'crl')
 
 
 class CA(object):
@@ -129,7 +122,7 @@ default_ca = CA_dev
 
 [ CA_dev ]
 dir             = {ca_path}
-certs       = $dir/certsdb
+certs       = $dir/certs
 new_certs_dir   = $certs
 database    = $dir/index.txt
 certificate = $dir/cacert.pem
@@ -201,10 +194,7 @@ the arguments dn={"cn": "(some name here)"} set.
         log.debug("dn_str is: {}".format(dn_str))
         self._make_ca_structure()
 
-        key_path = os.path.join(ca_path, 'private', 'cakey.pem')
-        cert_path = os.path.join(ca_path, 'cacert.pem')
-        careq_path = os.path.join(ca_path, 'careq.pem')
-        config_path = os.path.join(ca_path, 'openssl.conf')
+        paths = self.paths
 
         conf = self._CA_CONF.format(
             san=make_san_section(alt_names),
@@ -212,7 +202,7 @@ the arguments dn={"cn": "(some name here)"} set.
             dn=dn_str,
         )
 
-        with open(config_path, 'wb+') as f:
+        with open(paths.config, 'wb+') as f:
             f.write(conf.encode('utf-8'))
 
         cmd = [
@@ -224,11 +214,11 @@ the arguments dn={"cn": "(some name here)"} set.
             '-newkey',
             newkey,
             '-keyout',
-            key_path,
+            paths.key,
             '-out',
-            careq_path,
+            paths.root_csr,
             '-config',
-            config_path
+            paths.config,
         ]
         success, message = execute_cmd(cmd)
         if not success:
@@ -238,23 +228,23 @@ the arguments dn={"cn": "(some name here)"} set.
             self._openssl_path,
             'ca',
             '-config',
-            config_path,
+            paths.config,
             '-utf8',
             '-batch',
             '-name',
             'CA_dev',
             '-create_serial',
             '-out',
-            cert_path,
+            paths.root_ca,
             '-days',
             str(days),
             '-keyfile',
-            key_path,
+            paths.key,
             '-selfsign',
             '-extensions',
             'v3_ca_has_san',
             '-infiles',
-            careq_path,
+            paths.root_csr,
         ]
         log.debug("Creating CA...")
         log.debug("{}".format(" ".join(cmd)))
@@ -262,9 +252,9 @@ the arguments dn={"cn": "(some name here)"} set.
         if not success:
             raise get_exception_from_openssl_output(message)
 
-        with open(key_path) as key_file:
+        with open(paths.key) as key_file:
             key = key_file.read()
-        with open(cert_path) as cert_file:
+        with open(paths.root_ca) as cert_file:
             cert = cert_file.read()
         return {
             "success": success,
@@ -273,6 +263,12 @@ the arguments dn={"cn": "(some name here)"} set.
             "key": key,
             "conf": conf,
         }
+
+    @property
+    def paths(self):
+        if not getattr(self, '_path_holder', None):
+            self._path_holder = CAPaths(self._ca_path)
+        return self._path_holder
 
     def _make_ca_structure(self):
         log.info("Createing CA file structure at: '{}'".format(self._ca_path))
@@ -283,17 +279,19 @@ the arguments dn={"cn": "(some name here)"} set.
         )
         if os.path.exists(version_path):
             raise FileExistsError(version_path)
+        paths = self.paths
         folder_perms = [
-            ('certsdb', 0o750),
-            ('certreqs', 0o750),
-            ('crl', 0o750),
-            ('private', 0o700),
+            (paths.certs, 0o750),
+            (paths.reqs, 0o750),
+            (paths.crl, 0o750),
+            (paths.private, 0o700),
         ]
-        for name, perm in folder_perms:
-            path = os.path.join(basepath, name)
+        for path, perm in folder_perms:
             os.makedirs(path)
             os.chmod(path, perm)
         with open(os.path.join(basepath, 'index.txt'), 'w+') as f:
+            f.write('')
+        with open(os.path.join(basepath, 'rootcas.txt'), 'w+') as f:
             f.write('')
         with open(version_path, 'wb+') as f:
             f.write(str(self.DB_VERSION).encode('utf-8'))
@@ -330,9 +328,8 @@ the arguments dn={"cn": "(some name here)"} set.
         :param ca_path: Path to Certificate Authority
         :returns: JSON object with status
         """
-        ca_path = self._ca_path
         try:
-            with open(os.path.join(ca_path, 'cacert.pem')) as f:
+            with open(self.paths.root_ca) as f:
                 buf = f.read()
 
             rootca = parser.get_x509_as_json(
@@ -378,7 +375,7 @@ the arguments dn={"cn": "(some name here)"} set.
         :returns: list --
             a list of {"id": <id>, "last_modified": <datastring>}
         """
-        folder_path = os.path.join(self._ca_path, "certreqs")
+        folder_path = self.paths.reqs
         suffix = ".csr"
         paths = glob.glob(os.path.join(folder_path, '*' + suffix))
         ret = []
@@ -400,7 +397,7 @@ the arguments dn={"cn": "(some name here)"} set.
         :raise LookupError: request with serial not found
         :return: a dict with information
         """
-        path = os.path.join(self._ca_path, 'certreqs', serial + '.csr')
+        path = os.path.join(self.paths.reqs, serial + '.csr')
         if not os.path.exists(path):
             raise LookupError(path)
 
@@ -456,6 +453,10 @@ the arguments dn={"cn": "(some name here)"} set.
 
     def revoke_certificate(self, serial=None):
         cert_path = self._get_cert_path(serial=serial)
+        if not os.path.exists(cert_path):
+            raise LookupError("Certificate with serial '{}' not found".format(
+                serial))
+
         config_path = os.path.join(self._ca_path, 'openssl.conf')
         cmd = [
             self._openssl_path,
@@ -465,19 +466,22 @@ the arguments dn={"cn": "(some name here)"} set.
             '-revoke',
             cert_path
         ]
-        print(cmd)
         success, message = execute_cmd(cmd)
-        # revoke certificate
-        # - openssl ca -config ./openssl.conf -revoke certsdb/XXX.pem
-        # create crls
-        # - openssl ca -config ./openssl.conf -gencrl -out crl/cacert.crl
-        return {
-            "success": success,
-            "message": message
-        }
+        if success:
+
+            # revoke certificate
+            # - openssl ca -config ./openssl.conf -revoke certsdb/XXX.pem
+            # create crls
+            # - openssl ca -config ./openssl.conf -gencrl -out crl/cacert.crl
+            return {
+                "success": success,
+                "message": message
+            }
+        else:
+            raise get_exception_from_openssl_output(message)
 
     def _get_cert_path(self, serial=None):
-        return os.path.join(self._ca_path, "certsdb", serial + ".pem")
+        return os.path.join(self.paths.certs, serial + ".pem")
 
     def get_request_name_from_path(self, path):
         return parser.get_request_name(
@@ -554,7 +558,7 @@ the arguments dn={"cn": "(some name here)"} set.
                 if details.get('serial'):
                     serial = details.get('serial')
                     csr_db_path = os.path.join(
-                        ca_path, 'certreqs', '{:X}.csr'.format(serial)
+                        self.paths.reqs, '{:X}.csr'.format(serial)
                     )
                     with(open(csr_db_path, 'wb+')) as f:
                         f.write(csr.encode('utf-8'))

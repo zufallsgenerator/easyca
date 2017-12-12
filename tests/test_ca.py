@@ -49,6 +49,23 @@ D3b2JhkAAMG/ECc/Pdpb0JLZFNxid2XnK5/1ZxJuosdkL9MszFt9TfeHQHbxljt1
 /HoL3zy0d8ulR4qUq1M1gsVjUIb2NDWjjWgV9JYx1omOmeD5Ng==
 -----END CERTIFICATE REQUEST-----"""
 
+CSR_NO_CN = """-----BEGIN CERTIFICATE REQUEST-----
+MIICijCCAXICAQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUx
+ITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAL8sVBIs0ig1yF5z6FRnKrotnJinrkbHSvno/EYv
+POIywOLGWOGiXNDXewlcBKAzdqLhRYhoguYQSmi/F8gM2sIefmq48TH3rJA2HHOB
+OUMMg7xmav6vCtFIvjduyAH/GPRBGY/FkRUUq7uTl/65DhktB9VzCzaqumzo7nzF
+5O1cF3xCvZC4QL9htMHAyMXgSovXoAnebk+JAmfqMIVDH4+dv2rBc7eg4MJ36EjK
+tHtI0a8vtz4aGIXhDdV1NKJUl/2KWhx0iaORz+I8n/56sCJpl2t3fZszLC8HHLDb
+WwN54di/pQec3NDctzBbBxRBVf/vnyBnpjVW+peCzqhtap8CAwEAAaAAMA0GCSqG
+SIb3DQEBCwUAA4IBAQC+bT8UUv7bTFIpGN6krNo4yZd1MpOvdv1CLuMlVUEMK45i
+nrZVGiqz01N1Beo5BRQOUbjXUdouK0jJlkOp2dZHhKMiE7Rhh3SOXxRVUsoKgL6S
+IuW/n29G4oZtuPhHhaMV/tWx0whUhtwPwZoI2t25FqP+bphaRqPWRBP7xIHbzcU6
+ioJAFlztx4GGc3mM86h2meaKTNIOubCiFozmAE3PC1qS0r+b+CbI3RQnMkACzhS1
+XeeQ6MFRYDeSh/iaYOUC1mA0ppZcVIUYOaRVz9etpTTgwqE+7AdIezLJ/OrK6cVp
+Sk9moTHXZj1xQnKfoYw1n5rlsGoHkQDbeCYGNoVG
+-----END CERTIFICATE REQUEST-----"""
+
 
 def get_utcnow_round():
     return datetime.datetime.utcnow().replace(
@@ -149,19 +166,29 @@ class Test(unittest.TestCase):
         )
         self.assertTrue(res_ca.get('success'))
         info = ca.get_info()
+        print(info)
 
         st = info['rootca']['subject']['ST']
 
-        version = ca.openssl_version
+        self.assertEqual(st, 'Östergötlands Län')
 
-        # utf8 handling only seems to work from 1.0.2
-        # 1.1.0 starts outputting it differently
+    def test_create_ca_utf8_higher_codepoint(self):
+        ca_path = self.create_tempdir()
+        ca = CA(ca_path=ca_path, openssl_path=self._openssl_path)
+        res_ca = ca.initialize(
+            dn=dict(
+                cn='Ragnarr Lođbrok',
+                c='no',
+                st='Kattegatt',
+            ),
+            newkey='rsa:512',
+        )
+        self.assertTrue(res_ca.get('success'))
+        info = ca.get_info()
 
-        if version >= (1, 0, 2):
-            self.assertEqual(st, 'Östergötlands Län')
-        else:
-            self.assertEqual(st.lower(),
-                             '\\xd6sterg\\xf6tlands l\\xe4n')
+        cn = info['rootca']['subject']['CN']
+
+        self.assertEqual(cn, 'Ragnarr Lođbrok')
 
     def test_create_ca_and_sign_cert(self):
         """Create a CA and sign certificates with it"""
@@ -319,6 +346,19 @@ class Test(unittest.TestCase):
         for cert in certs:
             cert_res = ca.get_certificate(serial=cert['id'])
             self.assertTrue(cert_res is not None)
+
+    def test_sign_csr_no_cn(self):
+        ca = self.init_ca()
+        caught_error = None
+        try:
+            ca.sign_request(csr=CSR_NO_CN)
+        except Exception as e:
+            caught_error = e
+
+        self.assertTrue(caught_error is not None)
+        self.assertTrue(isinstance(caught_error, ValueError))
+        self.assertIn("missing", str(caught_error).lower())
+
 
     def test_distinguished_name(self):
         dn = DistinguishedName(cn="example.com")

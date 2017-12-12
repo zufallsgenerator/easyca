@@ -76,6 +76,8 @@ def get_x509_extensions(path=None, text=None, openssl_path=None):
         openssl_path,
         'x509',
         '-text',
+        '-nameopt',
+        'RFC2253',
         '-noout',
         '-certopt',
         # No linebreak between the two below here
@@ -124,6 +126,8 @@ def _extract_req(path=None, text=None, openssl_path=None):
         'req',
         '-noout',
         '-subject',
+        '-nameopt',
+        'RFC2253',
     ]
     if path:
         cmd += ['-in', path]
@@ -142,6 +146,8 @@ def get_request_extensions_as_json(path=None, text=None, openssl_path=None):
         'req',
         '-text',
         '-noout',
+        '-nameopt',
+        'RFC2253',
         '-reqopt',
         # No linebreak between the two below here
         'no_attributes,no_aux,no_header,no_issuer,no_pubkey,no_serial,'
@@ -220,6 +226,7 @@ def _transform_distinguished_slash_prefix(name):
 
 
 def _transform_distinguished_comma_delim(name):
+    # RFC2253
     # openssl 1.1.0 outputs subject=CN = example.com, O = Acme Corp
     ret = {}
 
@@ -319,6 +326,8 @@ def _extract_cert(path=None, text=None, openssl_path=None):
         '-startdate',
         '-enddate',
         '-serial',
+        '-nameopt',
+        'RFC2253',
     ]
     if path:
         cmd += ['-in', path]

@@ -10,6 +10,8 @@ sys.path.insert(
 
 from easyca.ca import (             # noqa
     CA,                             # noqa
+)
+from easyca.exceptions import (
     DuplicateRequestError,          # noqa
     OpenSSLError,                   # noqa
 )
@@ -20,8 +22,12 @@ from easyca.fmt import (            # noqa
 
 CMD_NAME = 'ca'
 
+C_ERROR = "\x1b[31;1m"
+C_YELLOW = "\x1b[33m"
+C_RESET = "\x1b[0m"
 
-DEBUG = False
+
+DEBUG = os.environ.get('DEBUG', '').lower() in ('true', '1')
 
 logging.getLogger().setLevel(logging.DEBUG if DEBUG else logging.CRITICAL)
 
@@ -44,7 +50,7 @@ DEFAULT_COMMON_NAME = "EasyCA Root CA (Self-Signed)"
 
 def distinguished_name_formatter(dn):
     ret = []
-    for key in ['CN', 'O', 'OU', 'L', 'ST', 'CN', 'EMAIL_ADDRESS']:
+    for key in ['CN', 'O', 'OU', 'L', 'ST', 'C', 'EMAIL_ADDRESS']:
         if key in dn.keys():
             value = dn[key]
             ret.append('/{}={}'.format(key.upper(), value))
@@ -58,7 +64,15 @@ def str_to_relative_time(date_string):
 
 
 def error_exit(message):
-    sys.stderr.write(message + '\n')
+    isatty = sys.stderr.isatty()
+
+    if isatty:
+        sys.stderr.write(C_ERROR)
+    sys.stderr.write(message)
+    if isatty:
+        sys.stderr.write(C_RESET)
+    sys.stderr.write('\n')
+
     sys.exit(1)
 
 
@@ -134,8 +148,14 @@ def cmd_cert(ca, args):
         print_dict(cert)
 
     elif cmd == 'revoke':
-        res = ca.revoke_certificate(args.cert_id)
-        print("Result of revoking: {}".format(res))
+        try:
+            res = ca.revoke_certificate(args.cert_id)
+        except LookupError:
+            error_exit("Certificate with id '{}' not found.".format(
+                args.cert_id))
+        except OpenSSLError as e:
+            error_exit("{}".format(e))
+        print_dict(res)
 
 
 def cmd_req(ca, args):
