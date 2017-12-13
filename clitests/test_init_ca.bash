@@ -5,7 +5,7 @@ set +e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/base.bash
-CMD="python ${DIR}/../easyca/cli.py"
+CMD="python ${DIR}/../cli/cmd_ca.py"
 
 TEMPDIR=$(mktemp -d -t easyca_test.XXXXX)
 #CA_PATH=$TEMPDIR
