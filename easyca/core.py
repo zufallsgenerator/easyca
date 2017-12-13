@@ -123,6 +123,92 @@ def create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
         shutil.rmtree(tmp_path)
 
 
+def make_filename(raw_name):
+    return raw_name.replace(" ", "_").lower()
+
+
+def create_request(
+        dn=None,
+        alt_names=None,
+        newkey='rsa:2048',
+        inkey=None,
+        output_folder=None,
+    ):
+    """Create a Certificate Signing Request (CSR)
+
+    :param dn: a dictionary with configuration for distinguished name
+    :param alt_names: a list of of Subject Alternative Names
+    :param days: how many days in the future the CA will be valid
+    :param newkey: key specification like 'rsa:2048'
+    :param inkey: path of key to use (newkey will be ignored)
+    :returns: a dict with the members *success* and *message* always set
+    """
+    dn_str = distinguished_name.make_dn_section(dn)
+
+    extensions_section = make_san_section(alt_names)
+
+    conf = CONF_TPL.format(
+        dn=dn_str,
+        extensions_section=extensions_section,
+    )
+    assert(output_folder)
+
+    with tempfile.NamedTemporaryFile(suffix='.conf', mode='wb+') as f:
+        f.write(conf.encode('utf-8'))
+        f.flush()
+        config_path = f.name
+        print(config_path)
+
+        prefix = make_filename(dn['cn'])
+
+
+        key_path = os.path.join(output_folder, '{}.key'.format(prefix))
+        csr_path = os.path.join(output_folder, '{}.csr'.format(prefix))
+
+        if inkey:
+            cmd = [
+                'openssl',
+                'req',
+                '-key',
+                inkey,
+                '-out',
+                csr_path,
+                '-config',
+                config_path,
+            ]
+        else:
+            cmd = [
+                'openssl',
+                'req',
+                '-newkey',
+                newkey,
+                '-nodes',
+                '-keyout',
+                key_path,
+                '-out',
+                csr_path,
+                '-config',
+                config_path,
+            ]
+        success, message = execute_cmd(cmd)
+        if success:
+            with open(key_path) as key_file:
+                key = key_file.read()
+            with open(csr_path) as csr_file:
+                csr = csr_file.read()
+
+            return {
+                "csr": csr,
+                "key": key,
+                "csr_path": csr_path,
+                "key_path": key_path,
+                "message": message,
+                "cmd": cmd,
+                "conf": conf,
+            }
+        else:
+            raise ValueError(message)
+
 __all__ = [
     'create_self_signed',
 ]

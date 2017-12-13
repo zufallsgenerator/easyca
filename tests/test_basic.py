@@ -121,6 +121,7 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('key', '').startswith(
             '-----BEGIN PRIVATE KEY-----'))
 
+
     def test_create_self_signed(self):
         """Create a self-signed certificate"""
         # Test with rsa:512 for speed purposes, the minimum key length
@@ -221,6 +222,17 @@ class Test(unittest.TestCase):
             text=SIGNED_SAN, openssl_path=self._openssl_path)
         print(json.dumps(res, indent=4))
 
+    def test_create_csr_basic(self):
+        """Create a self-signed certificate"""
+        output_folder = self.create_tempdir()
+        res = core.create_request(
+            dn=dict(cn='Acme Industries'),
+            output_folder=output_folder
+        )
+        self.assertTrue(res.get('csr', '').startswith(
+            '-----BEGIN CERTIFICATE REQUEST-----'))
+        self.assertTrue(res.get('key', '').startswith(
+            '-----BEGIN PRIVATE KEY-----'))
 
 
 
