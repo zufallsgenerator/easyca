@@ -1,9 +1,10 @@
 SHELL := /bin/bash
-.PHONY: clitest pytest test 
+.PHONY: clitest pytest test
+.PHONY: ubuntu-shell
+
 
 clitest:
 	./run_clitests.bash
-	
 
 pytest:
 	python setup.py test
@@ -15,3 +16,12 @@ clean:
 	rm -rf *.egg-info
 
 test: clitest pytest
+
+ubuntu-shell:
+	docker run -v ${PWD}:/usr/src/app -i -t easycatest:latest /bin/bash
+
+
+.PHONY: buildimage
+buildimage:
+	docker build -t easycatest .
+
