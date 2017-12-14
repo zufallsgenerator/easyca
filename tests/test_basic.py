@@ -70,6 +70,35 @@ xrTb5dAfL9vHYAjPsrtyP1/wQHfgIyTTmO3Tet3OInoLmnBkBnmpuEzKsimC/anX
 Hc4JnbaBFQ9V56i3jV443nahu0kgXSOoUuv1c0z4oFw=
 -----END CERTIFICATE-----"""
 
+PRIVATE_KEY="""-----BEGIN PRIVATE KEY-----
+MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDCjJO7y8V9DsU0
+J/WtinsnNG4NYphlm4wGIBnU82+A1WZ6Qn+Sxa+cOmZhrp8dsDxNFnjbyHKaldPl
+7q2XhvANE4BnTYwDFQy12DJ/diifzZFJ5XJPub0RK8VB3N9QEYWm28u3oV5/dd0s
+H7/hngmSlM7n7XQa8Wk93xtGkME2b5EXf0ZByOPS2+lucHW0tK3lKf1o7/hVrZ60
+1TvNgcUtOpPo7ZSyuWKLdfPsm4VbJcknRMw4unHhVXhNimpzPpGU9t5h8G/1KOdm
+z4ZXMrAvRuo1DnNWyEJMlS9+3mXnhVPECOH1kNxfMN8IPdnrw2mhjfsUQEPiVMgH
+76UwGZwfAgMBAAECggEBAI+I5/ZGAQ6jNxuj376JzRK/u/JkK8vLVyOty2ExubJz
+v4e0SCshbs70x1SKYRqmS9cUHVcKLIOgxxV9YtXI2JLNMI8Gx6X+gcIoIBmqM46z
+O94pSo1HnBZvFLnjG18XjmPtBgAVLoMbknJbelYbIzTiVUUIDAFU2zCqypTld6eQ
+nrdJlp3P+KHtvSQ8a9giznNUrLt1fkW8Jdc/gE1c/9dQ7Nw9hD14uReHzVgn4bMh
+5HUJuJMXKUVHOpLoCCj8JWylmSwRqZxebChWRUbx7Q+HnLQSHgCfvDNXudUbvQZU
+ua7TDDQOjgi8KqN6nGxp1sF3UgbS2npuKDPoaox+bwECgYEA7ON1MdP32VVcBWuC
+bdoEMaehO52OpF/qncxTF6X30Ukx1HPRnkPHNlyeO7huTHJjpCJnnfcXZ++vIerA
+fLM8pEqquWu3M9FgfxZEFq+pyMpb1dChMCDdTqzvyhRae6c8P4yr6CnvSPnSHhjI
+uy4uxFIlIBcaFVS+IVBh25AzncUCgYEA0j6rTEy+dHR8gdHUs4qkwpqIFDf4JhJB
+Kc5jhSqaUSLNQgOKQVhtu5ln364MubKxaofsW1cSB+4BJkzrVNbbZC3x+tnfU0bP
+pcejFV22X4IehRUOzCzzRS9hueQMNJ4NcQq8ug3nXhLOeJfWXr7nI3issPtCeANK
+55h2E41iNJMCgYAMUYe2n58z3gx6+6w8qimtq1nnD7prMdGxgv6PLEJGz9eXhK5R
+3JRvb0GLOXwC3a/wyRk6Ta8Z6Izi5qI72dY9dOSL394XA7xQ34eK5nedyWgdJkw7
+hHn9rWCK0aQi6f9oDpih6gxXbyZOClvl3/DupJbppEnm8hExCk0MbeNBQQKBgQCV
+/QNzoWRV7CxO6QUXORelhV0DH5K2hltamdTB0czZiTxpleDyEUXnid9i4eZOLD8J
+wwJJf2proc3MJx/UHJvTcjupO/lojaHhoPSlb3+Fz2w6gPVXj9HVT6ImXZyfhQoN
+1R0ilnyyzjPiMGBMo2B+G78HW5jlyWOMqWXDOSAQZQKBgQDTNt6aLw86anzJO2Li
+UgGDxObDBwnY9QX1adCf1SQ8tgE0+Ic45dhfkf2XAR5h7mxFeLbhE+D9Lq8oyZMP
+IVDRC71x5SnxUcJVgQZ49is1U9G1uEZKtDlv+QO/7jlHCU9JHo0l5/r9n16lVCPj
+nKMamc2WC/O9t22yRN4FzxQ6rw==
+-----END PRIVATE KEY-----"""
+
 
 def get_utcnow_round():
     return datetime.datetime.utcnow().replace(
@@ -237,6 +266,33 @@ class Test(unittest.TestCase):
             self.assertIn(csr_start, f.read())
         with open(res['key_path']) as f:
             self.assertIn(key_start, f.read())
+
+    def test_create_csr_own_key(self):
+        """Create a self-signed certificate"""
+        csr_start = '-----BEGIN CERTIFICATE REQUEST-----'
+        key_start = '-----BEGIN PRIVATE KEY-----'
+        output_folder = self.create_tempdir()
+
+        with tempfile.NamedTemporaryFile(suffix='.pem', mode='wb+') as f:
+            f.write(PRIVATE_KEY.encode('utf-8'))
+            f.flush()
+            inkey = f.name
+            print("inkey path: {}".format(inkey))
+
+            res = core.create_request(
+                dn=dict(cn='Acme Industries'),
+                output_folder=output_folder,
+                inkey=inkey,
+            )
+            self.assertIn(csr_start, res.get('csr', ''))
+            self.assertEquals(res.get('key'), None)
+#            self.assertIn(key_start, res.get('key', ''))
+            with open(res['csr_path']) as f:
+                self.assertIn(csr_start, f.read())
+            self.assertEquals(res.get('key_path'), None)
+#            with open(res['key_path']) as f:
+#                self.assertIn(key_start, f.read())
+
 
 
 if __name__ == "__main__":

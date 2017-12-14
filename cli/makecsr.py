@@ -58,12 +58,14 @@ def error_exit(message):
     sys.exit(1)
 
 
-def cmd_make_request(out=None, dn=None, san=None):
+def cmd_make_request(out=None, dn=None, san=None, inkey=None):
     print("alt_names: {}".format(san))
-    ret = core.create_request(dn=dn, output_folder=out, alt_names=san)
+    ret = core.create_request(
+        dn=dn, output_folder=out, alt_names=san, inkey=inkey)
     print("Created: ")
     print("  Certificate Signing Request: {}".format(ret['csr_path']))
-    print("                  Private key: {}".format(ret['key_path']))
+    if 'key_path' in ret:
+        print("                  Private key: {}".format(ret['key_path']))
 
 
 def cmd_main():
@@ -84,6 +86,13 @@ def cmd_main():
         dest='out',
         default=None,
         help='File to output the new private key to'
+    )
+    parser.add_argument(
+        '--key',
+        type=str,
+        dest='key',
+        default=None,
+        help='Existing file to use as key'
     )
     parser.add_argument(
         '--csrout',
@@ -111,7 +120,8 @@ def cmd_main():
     cmd_make_request(
         out=args.out,
         dn=build_distinguished_name_from_arguments(args),
-        san=san
+        san=san,
+        inkey=args.key,
     )
 
 

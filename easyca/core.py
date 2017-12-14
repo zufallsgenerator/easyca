@@ -194,8 +194,11 @@ def create_request(
             cmd = [
                 'openssl',
                 'req',
+                '-new',
+                '-sha256',
                 '-key',
                 inkey,
+                '-nodes',
                 '-out',
                 csr_path,
                 '-config',
@@ -205,6 +208,7 @@ def create_request(
             cmd = [
                 'openssl',
                 'req',
+                '-sha256',
                 '-newkey',
                 newkey,
                 '-nodes',
@@ -222,15 +226,20 @@ def create_request(
             with open(csr_path) as csr_file:
                 csr = csr_file.read()
 
-            return {
+            ret = {
                 "csr": csr,
-                "key": key,
                 "csr_path": csr_path,
-                "key_path": key_path,
                 "message": message,
                 "cmd": cmd,
                 "conf": conf,
             }
+            if not inkey:
+                ret.update({
+                    "key": key,
+                    "key_path": key_path,
+                })
+            return ret
+
         else:
             raise ValueError(message)
 
