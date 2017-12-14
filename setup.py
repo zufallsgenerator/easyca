@@ -58,6 +58,9 @@ setup(
     tests_require=['pytest'],
     cmdclass={'test': PyTest},
     entry_points = {
-        'console_scripts': ['ca=cli.cmd_ca:cmd_main'],
+        'console_scripts': [
+            'ca=cli.cmd_ca:cmd_main',
+            'makecsr=cli.makecsr:cmd_main'
+        ],
     }
 )

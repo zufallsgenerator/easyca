@@ -18,7 +18,7 @@ from .helpers import execute_cmd
 # https://jamielinux.com/docs/openssl-certificate-authority/appendix/root-configuration-file.html
 
 
-CONF_TPL = """[ req ]
+CONF_TPL_SELF_SIGNED = """[ req ]
 distinguished_name = req_distinguished_name
 prompt             = no
 x509_extensions    = v3_ca
@@ -41,6 +41,26 @@ EXT_SEC_TPL = """subjectAltName = @alt_names
 [ alt_names ]
 {alt_names}"""
 
+CONF_TPL_NORMAL = """[ req ]
+distinguished_name = req_distinguished_name
+prompt             = no
+req_extensions = req_ext
+
+[ req_distinguished_name ]
+{dn}
+
+[ req_ext ]
+{extensions_section}
+
+"""
+
+
+EXT_SEC_TPL = """subjectAltName = @alt_names
+
+[ alt_names ]
+{alt_names}"""
+
+
 EXT_LINE = "x509_extensions = v3_ca"
 
 
@@ -48,8 +68,9 @@ def make_san_section(alt_names):
     if not alt_names:
         return ''
 
+    formatted_alt_names = san.format_alt_names(alt_names)
     extensions_section = EXT_SEC_TPL.format(
-        alt_names=san.format_alt_names(alt_names))
+        alt_names=formatted_alt_names)
 
     return extensions_section
 
@@ -67,7 +88,7 @@ def create_self_signed(dn=None, alt_names=None, days=90, newkey='rsa:2048'):
 
     extensions_section = make_san_section(alt_names)
 
-    conf = CONF_TPL.format(
+    conf = CONF_TPL_SELF_SIGNED.format(
         dn=dn_str,
         extensions_section=extensions_section,
     )
@@ -132,8 +153,7 @@ def create_request(
         alt_names=None,
         newkey='rsa:2048',
         inkey=None,
-        output_folder=None,
-    ):
+        output_folder=None):
     """Create a Certificate Signing Request (CSR)
 
     :param dn: a dictionary with configuration for distinguished name
@@ -147,7 +167,7 @@ def create_request(
 
     extensions_section = make_san_section(alt_names)
 
-    conf = CONF_TPL.format(
+    conf = CONF_TPL_NORMAL.format(
         dn=dn_str,
         extensions_section=extensions_section,
     )
@@ -157,13 +177,18 @@ def create_request(
         f.write(conf.encode('utf-8'))
         f.flush()
         config_path = f.name
-        print(config_path)
 
         prefix = make_filename(dn['cn'])
-
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
 
         key_path = os.path.join(output_folder, '{}.key'.format(prefix))
         csr_path = os.path.join(output_folder, '{}.csr'.format(prefix))
+
+        with open(key_path, 'w') as f:
+            # Do flag
+            f.write('')
+        os.chmod(key_path, 0o600)
 
         if inkey:
             cmd = [

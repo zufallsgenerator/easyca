@@ -224,16 +224,19 @@ class Test(unittest.TestCase):
 
     def test_create_csr_basic(self):
         """Create a self-signed certificate"""
+        csr_start = '-----BEGIN CERTIFICATE REQUEST-----'
+        key_start = '-----BEGIN PRIVATE KEY-----'
         output_folder = self.create_tempdir()
         res = core.create_request(
             dn=dict(cn='Acme Industries'),
             output_folder=output_folder
         )
-        self.assertTrue(res.get('csr', '').startswith(
-            '-----BEGIN CERTIFICATE REQUEST-----'))
-        self.assertTrue(res.get('key', '').startswith(
-            '-----BEGIN PRIVATE KEY-----'))
-
+        self.assertIn(csr_start, res.get('csr', ''))
+        self.assertIn(key_start, res.get('key', ''))
+        with open(res['csr_path']) as f:
+            self.assertIn(csr_start, f.read())
+        with open(res['key_path']) as f:
+            self.assertIn(key_start, f.read())
 
 
 if __name__ == "__main__":
