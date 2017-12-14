@@ -37,9 +37,10 @@ def add_distinguished_name_arguments(parser):
     """
     for key, names in DN_MAPPING.items():
         dests = ['--' + key] + ['--' + n.replace('_', '-') for n in names]
+        required = (key == 'cn')
         parser.add_argument(
             *dests,
             type=str,
             default=None,
-            required=(key == 'cn'),
+            required=required,
         )
