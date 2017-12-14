@@ -42,5 +42,4 @@ def add_distinguished_name_arguments(parser):
             *dests,
             type=str,
             default=None,
-            required=required,
-        )
+            required=required)
