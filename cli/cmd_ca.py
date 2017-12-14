@@ -21,6 +21,11 @@ from easyca.fmt import (            # noqa
     print_list,                     # noqa
 )
 
+from cli.shared import (                      # noqa
+    add_distinguished_name_arguments,         # noqa
+    build_distinguished_name_from_arguments,  # noqa
+)
+
 CMD_NAME = 'ca'
 
 C_ERROR = "\x1b[31;1m"
@@ -31,17 +36,6 @@ C_RESET = "\x1b[0m"
 DEBUG = os.environ.get('DEBUG', '').lower() in ('true', '1')
 
 logging.getLogger().setLevel(logging.DEBUG if DEBUG else logging.CRITICAL)
-
-DN_MAPPING = dict(
-    c=['country'],
-    st=['state', 'province'],
-    l=['locality'],
-    o=['org_name'],
-    ou=['org_unit'],
-    cn=['common_name'],
-    email=['email_address']
-)
-
 
 FileReadErrors = (FileNotFoundError, IsADirectoryError, PermissionError)
 
@@ -77,29 +71,13 @@ def error_exit(message):
     sys.exit(1)
 
 
-def build_distinguished_name(args):
-    dn = {}
-    for key, names in DN_MAPPING.items():
-        for name in names:
-            if hasattr(args, name):
-                value = getattr(args, name)
-                if value is not None:
-                    dn[key] = value
-                    continue
-        if hasattr(args, key):
-            value = getattr(args, key)
-            if value is not None:
-                dn[key] = value
-    return dn
-
-
 def cmd_info(ca, args):
     print("CA Path: {}".format(ca.ca_path))
     print_dict(ca.get_info())
 
 
 def cmd_init(ca, args):
-    dn = build_distinguished_name(args)
+    dn = build_distinguished_name_from_arguments(args)
     if not dn.get('cn'):
         dn['cn'] = DEFAULT_COMMON_NAME
     try:
@@ -264,9 +242,7 @@ def cmd_main():
     parser_ca_init = subparsers.add_parser(
         'init',
         description='Initialize the root CA')
-    for key, names in DN_MAPPING.items():
-        dests = ['--' + key] + ['--' + n.replace('_', '-') for n in names]
-        parser_ca_init.add_argument(*dests, type=str, default=None)
+    add_distinguished_name_arguments(parser_ca_init)
     subparsers.add_parser(
         'info',
         description='Show information about configuration and the root CA')

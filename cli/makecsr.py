@@ -9,8 +9,8 @@ import arrow
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from easyca import core
-from easyca.exceptions import (
+from easyca import core             # noqa
+from easyca.exceptions import (     # noqa
     DuplicateRequestError,          # noqa
     OpenSSLError,                   # noqa
 )
@@ -18,9 +18,10 @@ from easyca.fmt import (            # noqa
     print_dict,                     # noqa
     print_list,                     # noqa
 )
-from cli.cmd_ca import (
-    DN_MAPPING,
-    distinguished_name_formatter,
+
+from cli.shared import (                      # noqa
+    add_distinguished_name_arguments,         # noqa
+    build_distinguished_name_from_arguments,  # noqa
 )
 
 CMD_NAME = 'csr'
@@ -57,22 +58,6 @@ def error_exit(message):
     sys.exit(1)
 
 
-def build_distinguished_name(args):
-    dn = {}
-    for key, names in DN_MAPPING.items():
-        for name in names:
-            if hasattr(args, name):
-                value = getattr(args, name)
-                if value is not None:
-                    dn[key] = value
-                    continue
-        if hasattr(args, key):
-            value = getattr(args, key)
-            if value is not None:
-                dn[key] = value
-    return dn
-
-
 def cmd_make_request(out=None, dn=None, san=None):
     print("alt_names: {}".format(san))
     ret = core.create_request(dn=dn, output_folder=out, alt_names=san)
@@ -107,9 +92,7 @@ def cmd_main():
         default=None,
         help='Path (file) to output CSR to'
     )
-    for key, names in DN_MAPPING.items():
-        dests = ['--' + key] + ['--' + n.replace('_', '-') for n in names]
-        parser.add_argument(*dests, type=str, default=None)
+    add_distinguished_name_arguments(parser)
     parser.add_argument(
         '--san',
         action='append',
@@ -118,14 +101,18 @@ def cmd_main():
 
     args = parser.parse_args()
     san = []
-    for name in args.san:
-        if "," in name:
-            san += [part.strip() for part in name.split(",")]
-        else:
-            san.append(name)
+    if args.san:
+        for name in args.san:
+            if "," in name:
+                san += [part.strip() for part in name.split(",")]
+            else:
+                san.append(name)
 
     cmd_make_request(
-        out=args.out, dn=build_distinguished_name(args), san=san)
+        out=args.out,
+        dn=build_distinguished_name_from_arguments(args),
+        san=san
+    )
 
 
 if __name__ == "__main__":
