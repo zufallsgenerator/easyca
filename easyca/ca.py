@@ -55,6 +55,8 @@ class CAPaths(object):
         self.root_ca = os.path.join(basepath, 'cacert.pem')
         self.root_csr = os.path.join(basepath, 'careq.pem')
         self.crl = os.path.join(basepath, 'crl')
+        self.index = os.path.join(basepath, 'index.txt')
+        self.index_attr = os.path.join(basepath, 'index.txt.attr')
 
 
 class CA(object):
@@ -76,6 +78,8 @@ class CA(object):
         self.openssl_version = self._get_openssl_version(self._openssl_path)
         log.debug("openssl_path: {}, openssl_version: {}".format(
             self._openssl_path, self.openssl_version))
+
+        self.extractor = parser.Extractor(self._openssl_path)
 
     @property
     def ca_path(self):
@@ -206,7 +210,6 @@ the arguments dn={"cn": "(some name here)"} set.
             f.write(conf.encode('utf-8'))
 
         cmd = [
-            self._openssl_path,
             'req',
             '-nodes',
             '-new',
@@ -220,12 +223,11 @@ the arguments dn={"cn": "(some name here)"} set.
             '-config',
             paths.config,
         ]
-        success, message = execute_cmd(cmd)
+        success, message = self.execute_cmd(cmd)
         if not success:
             raise get_exception_from_openssl_output(message)
 
         cmd = [
-            self._openssl_path,
             'ca',
             '-config',
             paths.config,
@@ -248,7 +250,7 @@ the arguments dn={"cn": "(some name here)"} set.
         ]
         log.debug("Creating CA...")
         log.debug("{}".format(" ".join(cmd)))
-        success, message = execute_cmd(cmd)
+        success, message = self.execute_cmd(cmd)
         if not success:
             raise get_exception_from_openssl_output(message)
 
@@ -289,7 +291,7 @@ the arguments dn={"cn": "(some name here)"} set.
         for path, perm in folder_perms:
             os.makedirs(path)
             os.chmod(path, perm)
-        with open(os.path.join(basepath, 'index.txt'), 'w+') as f:
+        with open(self.paths.index, 'w+') as f:
             f.write('')
         with open(os.path.join(basepath, 'rootcas.txt'), 'w+') as f:
             f.write('')
@@ -302,8 +304,7 @@ the arguments dn={"cn": "(some name here)"} set.
             return int(f.read())
 
     def _get_db_settings(self):
-        with open(os.path.join(
-                self._ca_path, 'index.txt.attr')) as f:
+        with open(self.paths.index_attr) as f:
             text = f.read()
 
         ret = {}
@@ -322,6 +323,9 @@ the arguments dn={"cn": "(some name here)"} set.
         """
         pass
 
+    def execute_cmd(self, cmd, text=None):
+        return execute_cmd([self._openssl_path] + cmd, text=text)
+
     def get_info(self):
         """Get information about the CA in ca_path.
 
@@ -332,9 +336,8 @@ the arguments dn={"cn": "(some name here)"} set.
             with open(self.paths.root_ca) as f:
                 buf = f.read()
 
-            rootca = parser.get_x509_as_json(
+            rootca = self.extractor.get_x509_as_json(
                 text=buf,
-                openssl_path=self._openssl_path,
             )
             db_settings = self._get_db_settings()
             return {
@@ -355,15 +358,13 @@ the arguments dn={"cn": "(some name here)"} set.
     def updatedb(self):
         """Updates the database index to purge expired certificates.
         """
-        config_path = os.path.join(self._ca_path, 'openssl.conf')
         cmd = [
-            self._openssl_path,
             'ca',
             '-config',
-            config_path,
+            self.paths.config,
             '-updatedb'
         ]
-        success, message = execute_cmd(cmd)
+        success, message = self.execute_cmd(cmd)
         return {
             "success": success,
             "message": message
@@ -401,14 +402,13 @@ the arguments dn={"cn": "(some name here)"} set.
         if not os.path.exists(path):
             raise LookupError(path)
 
-        return parser.get_request_as_json(
-            path=path, openssl_path=self._openssl_path)
+        return self.extractor.get_request_as_json(
+            path=path)
 
     def list_certificates(self):
         """Get a list of signed certificates"""
         # http://pki-tutorial.readthedocs.io/en/latest/cadb.html
-        index_path = os.path.join(self._ca_path, "index.txt")
-        with open(index_path) as f:
+        with open(self.paths.index) as f:
             lines = f.readlines()
 
         ret = []
@@ -441,8 +441,7 @@ the arguments dn={"cn": "(some name here)"} set.
         """
         path = self._get_cert_path(serial=serial)
         if os.path.exists(path):
-            parsed = parser.get_x509_as_json(
-                path=path, openssl_path=self._openssl_path)
+            parsed = self.extractor.get_x509_as_json(path=path)
             return {
                 "success": True,
                 "details": parsed,
@@ -457,16 +456,14 @@ the arguments dn={"cn": "(some name here)"} set.
             raise LookupError("Certificate with serial '{}' not found".format(
                 serial))
 
-        config_path = os.path.join(self._ca_path, 'openssl.conf')
         cmd = [
-            self._openssl_path,
             'ca',
             '-config',
-            config_path,
+            self.paths.config,
             '-revoke',
             cert_path
         ]
-        success, message = execute_cmd(cmd)
+        success, message = self.execute_cmd(cmd)
         if success:
 
             # revoke certificate
@@ -484,8 +481,7 @@ the arguments dn={"cn": "(some name here)"} set.
         return os.path.join(self.paths.certs, serial + ".pem")
 
     def get_request_name_from_path(self, path):
-        return parser.get_request_name(
-            path=path, openssl_path=self._openssl_path)
+        return self.extractor.get_request_name(path=path)
 
     def sign_request(self, csr=None, days=90):
         """Sign a Certificate Signing Request.
@@ -508,10 +504,7 @@ the arguments dn={"cn": "(some name here)"} set.
             log.debug("sign_request -> API version of CA: {}".format(
                 api_version))
 
-            alt_names = parser.extract_san_from_req(
-                text=csr,
-                openssl_path=self._openssl_path,
-            )
+            alt_names = self.extractor.extract_san_from_req(text=csr)
             log.debug("sign_request -> alt_names: {}".format(alt_names))
             log.info("Signing request. days: {}, altNames: {}".format(
                 90, alt_names))
@@ -532,7 +525,6 @@ the arguments dn={"cn": "(some name here)"} set.
                 f.write(csr.encode('utf-8'))
 
             cmd = [
-                self._openssl_path,
                 'ca',
                 '-batch',
                 '-name',
@@ -549,12 +541,9 @@ the arguments dn={"cn": "(some name here)"} set.
                 csr_path,
             ]
 
-            success, message = execute_cmd(cmd, text=csr)
+            success, message = self.execute_cmd(cmd, text=csr)
             if success:
-                details = parser.get_x509_as_json(
-                    text=message,
-                    openssl_path=self._openssl_path
-                )
+                details = self.extractor.get_x509_as_json(text=message)
                 if details.get('serial'):
                     serial = details.get('serial')
                     csr_db_path = os.path.join(

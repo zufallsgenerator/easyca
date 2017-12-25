@@ -88,6 +88,7 @@ class Test(unittest.TestCase):
         self._tempdirs = []
         self._openssl_path = os.environ.get(
             "OPENSSL", self._get_openssl_path())
+        self.extractor = parser.Extractor(self._openssl_path)
 
     def _get_openssl_path(self):
         with os.popen('which openssl') as f:
@@ -137,9 +138,8 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('success'), "Message: {}\nConf: {}\n".format(
             res.get('message'), res.get("conf")))
 
-        res_parsed = parser.get_x509_as_json(
+        res_parsed = self.extractor.get_x509_as_json(
             text=res.get('cert'),
-            openssl_path=self._openssl_path
         )
 
         san = get_san_from_extensions(res_parsed['extensions'])
@@ -215,9 +215,9 @@ class Test(unittest.TestCase):
         self.assertTrue(res_cert.get('success'), "Message: {}\n".format(
             res_cert.get('message')))
 
-        res_parsed = parser.get_x509_as_json(
+        res_parsed = self.extractor.get_x509_as_json(
             text=res_cert.get('cert'),
-            openssl_path=self._openssl_path)
+        )
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['CN'], 'example.com')
 
@@ -226,9 +226,9 @@ class Test(unittest.TestCase):
         self.assertTrue(res_cert_san.get('success'), "Message: {}\n".format(
             res_cert_san.get('message')))
 
-        res_parsed = parser.get_x509_as_json(
+        res_parsed = self.extractor.get_x509_as_json(
             text=res_cert_san.get('cert'),
-            openssl_path=self._openssl_path)
+        )
 
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')
@@ -319,8 +319,9 @@ class Test(unittest.TestCase):
         self.assertTrue('subject' in server_csr)
         self.assertEqual(server_csr['subject']['CN'], 'acme.org')
 
-        res_parsed = parser.get_x509_as_json(
-            text=res_cert_san.get('cert'), openssl_path=self._openssl_path)
+        res_parsed = self.extractor.get_x509_as_json(
+            text=res_cert_san.get('cert')
+        )
 
         self.assertEqual(res_parsed['issuer']['CN'], common_name)
         self.assertEqual(res_parsed['subject']['O'], 'Acme Machines INC')

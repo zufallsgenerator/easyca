@@ -121,6 +121,7 @@ class Test(unittest.TestCase):
         self._tempdirs = []
         self._openssl_path = os.environ.get(
             "OPENSSL", self._get_openssl_path())
+        self.extractor = parser.Extractor(self._openssl_path)
 
     def _get_openssl_path(self):
         with os.popen('which openssl') as f:
@@ -167,9 +168,8 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
 
-        res_parsed = parser.get_x509_as_json(
+        res_parsed = self.extractor.get_x509_as_json(
             text=res.get('cert'),
-            openssl_path=self._openssl_path,
         )
 
         # Verify common name
@@ -207,9 +207,8 @@ class Test(unittest.TestCase):
         self.assertTrue(res.get('cert', '').startswith(
             '-----BEGIN CERTIFICATE-----'))
 
-        res_parsed = parser.get_x509_as_json(
+        res_parsed = self.extractor.get_x509_as_json(
             text=res.get('cert'),
-            openssl_path=self._openssl_path,
         )
 
         # Verify common name
@@ -232,9 +231,8 @@ class Test(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix='.csr', mode='wb+') as f:
             f.write(CSR_SAN.encode('utf-8'))
             f.flush()
-            san = parser.extract_san_from_req(
+            san = self.extractor.extract_san_from_req(
                 path=f.name,
-                openssl_path=self._openssl_path,
             )
             self.assertEqual(
                 sorted(san),
@@ -247,8 +245,7 @@ class Test(unittest.TestCase):
             )
 
     def test_load_x509(self):
-        res = parser.get_x509_as_json(
-            text=SIGNED_SAN, openssl_path=self._openssl_path)
+        res = self.extractor.get_x509_as_json(text=SIGNED_SAN)
         print(json.dumps(res, indent=4))
 
     def test_create_csr_basic(self):

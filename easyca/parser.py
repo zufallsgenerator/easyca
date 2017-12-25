@@ -5,7 +5,7 @@ import logging
 import re
 
 from dateutil import parser as dateparser
-from dateutil.tz import tzutc as TZUTC
+from dateutil.tz import tzutc as TZUTC  # noqa
 
 from .helpers import execute_cmd
 
@@ -17,6 +17,170 @@ log = logging.getLogger(__name__)
 
 
 tzutc = TZUTC()
+
+
+class Extractor(object):
+    def __init__(self, openssl_path):
+        self._openssl_path = openssl_path
+
+    def execute_cmd(self, cmd, text=None):
+        return execute_cmd([self._openssl_path] + cmd, text=text)
+
+    def extract_san_from_req(self, path=None, text=None):
+        san = []
+        res = self.get_request_extensions_as_json(path=path, text=text)
+        if not res.get("success"):
+            return None
+        for ext in res['extensions']:
+            if ext['name'] == "subjectAlternativeName":
+                parts = [p.strip() for p in ext['str'].split(',')]
+                for p in parts:
+                    if ":" in p:
+                        idx = p.index(":")
+                        san.append(p[idx + 1:])
+
+        return san
+
+    def get_request_extensions_as_json(self, path=None, text=None):
+        # TODO: critical flag
+        cmd = [
+            'req',
+            '-text',
+            '-noout',
+            '-nameopt',
+            'RFC2253',
+            '-reqopt',
+            # No linebreak between the two below here
+            'no_attributes,no_aux,no_header,no_issuer,no_pubkey,no_serial,'
+            'no_sigdump,no_signame,no_subject,no_subject,no_validity,'
+            'no_version',
+        ]
+        if path:
+            cmd += ['-in', path]
+            success, message = self.execute_cmd(cmd)
+        elif text:
+            success, message = self.execute_cmd(cmd, text=text)
+        else:
+            raise ValueError("Need either path or text")
+
+        if not success:
+            return {
+                'success': False,
+                'message': message
+            }
+        if success:
+            return {
+                'success': True,
+                'extensions': parse_extensions_output(message)
+            }
+
+    def get_x509_extensions(self, path=None, text=None):
+        cmd = [
+            'x509',
+            '-text',
+            '-nameopt',
+            'RFC2253',
+            '-noout',
+            '-certopt',
+            # No linebreak between the two below here
+            'no_aux,no_header,no_issuer,no_pubkey,no_serial,no_sigdump,'
+            'no_signame,no_subject,no_subject,no_validity,no_version',
+        ]
+
+        if path:
+            cmd += ['-in', path]
+            success, message = self.execute_cmd(cmd)
+        elif text is not None:
+            success, message = self.execute_cmd(cmd, text=text)
+        else:
+            raise ValueError("Need path or text")
+
+        if not success:
+            raise Exception(message)
+        return parse_extensions_output(message)
+
+    def get_request_as_json(self, path=None, text=None):
+        success, message = self._extract_req(
+            path=path, text=text)
+        if not success:
+            raise Exception(message)
+
+        details = parse_x509_output(message, transformers=FIELD_TRANSFORMERS)
+
+        extensions = self.get_request_extensions_as_json(path=path, text=text)
+
+        assert('extensions' not in details)
+        details['extensions'] = extensions
+
+        return details
+
+    def _extract_req(self, path=None, text=None):
+        if path and "-----" in path:
+            raise ValueError("Should probably be text, not path")
+
+        # TODO: missing: version, expired
+        cmd = [
+            'req',
+            '-noout',
+            '-subject',
+            '-nameopt',
+            'RFC2253',
+        ]
+        if path:
+            cmd += ['-in', path]
+            success, message = self.execute_cmd(cmd)
+        else:
+            success, message = self.execute_cmd(cmd, text)
+
+        return success, message
+
+    def get_x509_as_json(self, path=None, text=None):
+        success, message = self._extract_cert(path=path, text=text)
+        if not success:
+            raise Exception(message)
+
+        details = parse_x509_output(message, transformers=FIELD_TRANSFORMERS)
+
+        extensions = self.get_x509_extensions(
+            path=path, text=text)
+
+        assert('extensions' not in details)
+        details['extensions'] = extensions
+
+        return details
+
+    def get_request_name(self, path=None, text=None):
+
+        success, message = self._extract_req(
+            path=path, text=text)
+        if not success:
+            raise Exception(message)
+        details = parse_x509_output(message, transformers=None)
+        return details.get('subject')
+
+    def _extract_cert(self, path=None, text=None):
+        if path and "-----" in path:
+            raise ValueError("Should probably be text, not path")
+
+        # TODO: missing: version, expired
+        cmd = [
+            'x509',
+            '-noout',
+            '-subject',
+            '-issuer',
+            '-startdate',
+            '-enddate',
+            '-serial',
+            '-nameopt',
+            'RFC2253',
+        ]
+        if path:
+            cmd += ['-in', path]
+            success, message = self.execute_cmd(cmd)
+        else:
+            success, message = self.execute_cmd(cmd, text)
+
+        return success, message
 
 
 def parse_extensions_output(text):
@@ -68,129 +232,6 @@ def make_camel_case(text):
             ret.append(p[0].upper() + p[1:])
 
     return "".join(ret)
-
-
-def get_x509_extensions(path=None, text=None, openssl_path=None):
-    assert(openssl_path)
-    cmd = [
-        openssl_path,
-        'x509',
-        '-text',
-        '-nameopt',
-        'RFC2253',
-        '-noout',
-        '-certopt',
-        # No linebreak between the two below here
-        'no_aux,no_header,no_issuer,no_pubkey,no_serial,no_sigdump,'
-        'no_signame,no_subject,no_subject,no_validity,no_version',
-    ]
-
-    if path:
-        cmd += ['-in', path]
-        success, message = execute_cmd(cmd)
-    elif text is not None:
-        success, message = execute_cmd(cmd, text=text)
-    else:
-        raise ValueError("Need path or text")
-
-    if not success:
-        raise Exception(message)
-    return parse_extensions_output(message)
-
-
-def get_request_as_json(path=None, text=None, openssl_path=None):
-    success, message = _extract_req(
-        path=path, text=text, openssl_path=openssl_path)
-    if not success:
-        raise Exception(message)
-
-    details = parse_x509_output(message, transformers=FIELD_TRANSFORMERS)
-
-    extensions = get_request_extensions_as_json(
-        path=path, text=text, openssl_path=openssl_path)
-
-    assert('extensions' not in details)
-    details['extensions'] = extensions
-
-    return details
-
-
-def _extract_req(path=None, text=None, openssl_path=None):
-    assert(openssl_path)
-    if path and "-----" in path:
-        raise ValueError("Should probably be text, not path")
-
-    # TODO: missing: version, expired
-    cmd = [
-        openssl_path,
-        'req',
-        '-noout',
-        '-subject',
-        '-nameopt',
-        'RFC2253',
-    ]
-    if path:
-        cmd += ['-in', path]
-        success, message = execute_cmd(cmd)
-    else:
-        success, message = execute_cmd(cmd, text)
-
-    return success, message
-
-
-def get_request_extensions_as_json(path=None, text=None, openssl_path=None):
-    assert(openssl_path)
-    # TODO: critical flag
-    cmd = [
-        openssl_path,
-        'req',
-        '-text',
-        '-noout',
-        '-nameopt',
-        'RFC2253',
-        '-reqopt',
-        # No linebreak between the two below here
-        'no_attributes,no_aux,no_header,no_issuer,no_pubkey,no_serial,'
-        'no_sigdump,no_signame,no_subject,no_subject,no_validity,no_version',
-    ]
-    if path:
-        cmd += ['-in', path]
-        success, message = execute_cmd(cmd)
-    elif text:
-        success, message = execute_cmd(cmd, text=text)
-    else:
-        raise ValueError("Need either path or text")
-
-    if not success:
-        return {
-            'success': False,
-            'message': message
-        }
-    if success:
-        return {
-            'success': True,
-            'extensions': parse_extensions_output(message)
-        }
-
-
-def extract_san_from_req(path=None, text=None, openssl_path=None):
-    if openssl_path is None:
-        raise ValueError("Need openssl_path to be set")
-    san = []
-    res = get_request_extensions_as_json(
-        path=path, text=text, openssl_path=openssl_path
-    )
-    if not res.get("success"):
-        return None
-    for ext in res['extensions']:
-        if ext['name'] == "subjectAlternativeName":
-            parts = [p.strip() for p in ext['str'].split(',')]
-            for p in parts:
-                if ":" in p:
-                    idx = p.index(":")
-                    san.append(p[idx + 1:])
-
-    return san
 
 
 def transform_datestring(datestr):
@@ -282,60 +323,6 @@ def parse_x509_output(text, transformers=None):
 
         ret[key] = value
     return ret
-
-
-def get_x509_as_json(path=None, text=None, openssl_path=None):
-    success, message = _extract_cert(
-        path=path, text=text, openssl_path=openssl_path)
-    if not success:
-        raise Exception(message)
-
-    details = parse_x509_output(message, transformers=FIELD_TRANSFORMERS)
-
-    extensions = get_x509_extensions(
-        path=path, text=text, openssl_path=openssl_path)
-
-    assert('extensions' not in details)
-    details['extensions'] = extensions
-
-    return details
-
-
-def get_request_name(path=None, text=None, openssl_path=None):
-
-    success, message = _extract_req(
-        path=path, text=text, openssl_path=openssl_path)
-    if not success:
-        raise Exception(message)
-    details = parse_x509_output(message, transformers=None)
-    return details.get('subject')
-
-
-def _extract_cert(path=None, text=None, openssl_path=None):
-    assert(openssl_path)
-    if path and "-----" in path:
-        raise ValueError("Should probably be text, not path")
-
-    # TODO: missing: version, expired
-    cmd = [
-        openssl_path,
-        'x509',
-        '-noout',
-        '-subject',
-        '-issuer',
-        '-startdate',
-        '-enddate',
-        '-serial',
-        '-nameopt',
-        'RFC2253',
-    ]
-    if path:
-        cmd += ['-in', path]
-        success, message = execute_cmd(cmd)
-    else:
-        success, message = execute_cmd(cmd, text)
-
-    return success, message
 
 
 def decode_hex_utf8(he):
