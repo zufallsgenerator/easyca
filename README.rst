@@ -3,7 +3,7 @@
 EasyCA
 ******
 
-Copyright (c) 2017 Christer Byström
+Copyright (c) 2017-2020 Christer Byström
 
 This package provides convinience methods for creating Certificate
 Authorities (CA), signing Certificate Signing Requests (CSR) and
@@ -20,7 +20,7 @@ deprecated at some point.
 
 Under the hood the openssl cli is used.
 
-Python 3.4 and above supported.
+Python 3.5 and above supported.
 
 
 API Reference
